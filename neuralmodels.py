@@ -18,44 +18,47 @@ from cluster_pool import ClusterPooling
 from torch_geometric.data import Data
 
 from ModelInterface import ModelInterface
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 """The model with the architecture from Diehl"""
 class GraphConvPoolNN(torch.nn.Module):
     archName = "GCN Pooling"
-    def __init__(self, node_features, task_type_node, num_classes, hid_channel, device):
+    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, hid_channel, device):
         super().__init__()
-        self.n_epochs = 250
+        self.n_epochs = 500
         self.num_classes = num_classes
         self.device = device
+        self.poolLayer = PoolLayer
         
         if self.num_classes == 2: #binary
             self.num_classes = 1
 
         self.task_type_node = task_type_node
 
-        dropout=0.1
-        dropout_pool=0.1
+        dropout=0.0
+        dropout_pool=0.0
         self.dropout = torch.nn.Dropout(p=dropout)
 
         self.conv1 = GCNConv(node_features, hid_channel)
-        self.batchnorm1 = BatchNorm(hid_channel)
-        self.conv2 = GCNConv(hid_channel, hid_channel)
-        self.batchnorm2 = BatchNorm(hid_channel)
+        #self.batchnorm1 = BatchNorm(hid_channel)
+        #self.conv2 = GCNConv(hid_channel, hid_channel)
+        #self.batchnorm2 = BatchNorm(hid_channel)
 
-        self.pool1 = EdgePooling(hid_channel, dropout=dropout_pool)
+        self.pool1 = PoolLayer(hid_channel, dropout=dropout_pool)
         self.conv3 = GCNConv(hid_channel, hid_channel)
-        self.batchnorm3 = BatchNorm(hid_channel)
+        #self.batchnorm3 = BatchNorm(hid_channel)
 
-        self.conv4 = GCNConv(hid_channel, hid_channel)
-        self.batchnorm4 = BatchNorm(hid_channel)
+        #self.conv4 = GCNConv(hid_channel, hid_channel)
+        #self.batchnorm4 = BatchNorm(hid_channel)
 
-        self.pool2 = EdgePooling(hid_channel, dropout=dropout_pool)
-        self.conv5 = GCNConv(hid_channel, hid_channel)
-        self.batchnorm5 = BatchNorm(hid_channel)
+        #self.pool2 = PoolLayer(hid_channel, dropout=dropout_pool)
+        #self.conv5 = GCNConv(hid_channel, hid_channel)
+        #self.batchnorm5 = BatchNorm(hid_channel)
 
-        self.fc1 = torch.nn.Linear(hid_channel, hid_channel)
-        self.batchnorm6 = BatchNorm(hid_channel)
+        #self.fc1 = torch.nn.Linear(hid_channel, hid_channel)
+        #self.batchnorm6 = BatchNorm(hid_channel)
         self.fc2 = torch.nn.Linear(hid_channel, self.num_classes)
 
     def forward(self, data):
@@ -63,158 +66,58 @@ class GraphConvPoolNN(torch.nn.Module):
         data = Data(x=data[0], edge_index=data[1].t().contiguous())
 
         x, edge_index = data.x, data.edge_index
+        #ogsize = x.size(0)
        # x_in = torch.clone(x)
 
         
         x = self.conv1(x, edge_index)
-        x = self.batchnorm1(x)
-        x = self.dropout(x)
+        #x = self.batchnorm1(x)
         x = F.relu(x)
+        x = self.dropout(x)
 
-        x = self.conv2(x, edge_index)
-        x = self.batchnorm2(x)
-        x = self.dropout(x)
-        x = F.relu(x)
+        #x = self.conv2(x, edge_index)
+        #x = self.batchnorm2(x)
+        #x = F.relu(x)
+        #x = self.dropout(x)
 
         x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
 
         x = self.conv3(x, edge_index)
-        x = self.batchnorm3(x)
-        x = self.dropout(x)
+        #x = self.batchnorm3(x)
         x = F.relu(x)
-
-        x = self.conv4(x, edge_index)
-        x = self.batchnorm4(x)
         x = self.dropout(x)
-        x = F.relu(x)
 
-        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
+        #x = self.conv4(x, edge_index)
+        #x = self.batchnorm4(x)
+        #x = F.relu(x)
+        #x = self.dropout(x)
 
-        x = self.conv5(x, edge_index)
-        x = self.batchnorm5(x)
-        x = self.dropout(x)
-        x = F.relu(x)
+        #x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
+
+        #x = self.conv5(x, edge_index)
+        #x = self.batchnorm5(x)
+        #x = F.relu(x)
+        #x = self.dropout(x)
 
         if self.task_type_node: #Dealing with node classification
-            x, edge_index, batch = self.pool2.unpool(x, unpool2)
+            #x, edge_index, batch = self.pool2.unpool(x, unpool2)
             x, edge_index, batch = self.pool1.unpool(x, unpool1)
-        else: #dealing with graph classification        
+        else: #dealing with graph classification
             x = global_mean_pool(x, batch)
+            #Try global sum pool
+            #Maybe try global max pool maar dat verpest misschien de gradients
 
-        x = self.fc1(x)
-        x = self.batchnorm6(x)
-        x = self.dropout(x)
-        x = F.relu(x)
+        #x = self.fc1(x)
+        #x = self.batchnorm6(x)
+        #x = F.relu(x)
+        #x = self.dropout(x)
         x = self.fc2(x)
-
         
         x = torch.sigmoid(x)
         if self.num_classes == 1: #binary
             return torch.flatten(x)
         else:
             return x
-
-
-class GraphConvClusterPool(torch.nn.Module):
-    archName = "GCN Cluster Pooling"
-    def __init__(self, node_features, num_classes, hid_channel, device):
-        super().__init__()
-        self.n_epochs = 500
-        self.num_classes = num_classes
-        self.device = device
-        if self.num_classes == 2: #binary
-            self.num_classes = 1
-        self.minsize = 0
-
-        #self.hidden_channel = 128
-        self.hidden_channel = hid_channel
-        self.clusmap = None
-        self.dropoutp = 0.1
-
-        self.dropout = torch.nn.Dropout(p=self.dropoutp)
-
-        self.conv1 = GCNConv(node_features, self.hidden_channel)              
-
-        self.pool1 = ClusterPooling(self.hidden_channel+node_features, dropout=self.dropoutp)
-        self.conv4 = GCNConv(self.hidden_channel+node_features, self.hidden_channel)
-
-        self.pool2 = ClusterPooling(2*self.hidden_channel+node_features, dropout=self.dropoutp)
-        self.conv5 = GCNConv(self.hidden_channel*2+node_features, self.hidden_channel)
-
-        self.pool3 = ClusterPooling(3*self.hidden_channel+node_features, dropout=self.dropoutp)
-        self.conv6 = GCNConv(self.hidden_channel*3+node_features, self.hidden_channel)
-
-        self.conv7 = GCNConv(self.hidden_channel+node_features, self.hidden_channel)
-        self.fc1 = torch.nn.Linear(self.hidden_channel + node_features, self.hidden_channel)
-        self.fc2 = torch.nn.Linear(self.hidden_channel + node_features, self.num_classes)
-
-    def forward(self, data):
-        data = Data(x=data[0], edge_index=data[1].t().contiguous())
-
-        x, edge_index = data.x, data.edge_index
-        x_in = torch.clone(x)
-
-        x = self.conv1(x, edge_index)
-        x = self.dropout(x)
-        x = F.relu(x)
-
-        x = torch.cat((x_in, x), -1) #Skip connection
-
-        batch = torch.tensor(np.zeros(x.shape[0])).long().to(self.device) #Make a batch tensor of np.zeros of length num nodes
-        
-        x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
-        x_pool = x.clone()
-        
-        self.clusmap = unpool1.cluster_map
-
-        x = self.conv4(x, edge_index)
-        x = self.dropout(x)
-        x = F.relu(x)
-
-        x = torch.cat((x_pool, x), -1) #Skip connection
-        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
-        x_pool = x.clone()
-    
-        x = self.conv5(x, edge_index)
-        x = self.dropout(x)
-        x = F.relu(x)
-
-        x = torch.cat((x_pool, x), -1) #Skip connection
-        x, edge_index, batch, unpool3 = self.pool3(x, edge_index.long(), batch)
-        x_pool = x.clone()
-
-        x = self.conv6(x, edge_index)
-        x = self.dropout(x)
-        x = F.relu(x)
-
-        #Unpool
-        x, edge_index, batch = self.pool3.unpool(x, unpool3)
-        x, edge_index, batch = self.pool2.unpool(x, unpool2)
-        x, edge_index, batch = self.pool1.unpool(x, unpool1)
-
-        x = torch.cat((x_in, x), -1) #Skip connection
-
-        x = self.conv7(x, edge_index)
-        x = self.dropout(x)
-        x = F.relu(x)
-
-        x = torch.cat((x_in, x), -1) #Skip connection
-        x = self.fc1(x)
-        x = self.dropout(x)
-        x = F.relu(x)
-
-        x = torch.cat((x_in, x), -1) #Skip connection
-        x = self.fc2(x)
-
-        #print(x)
-        #print(F.log_softmax(x, dim=1))
-    
-        x = torch.sigmoid(x)
-        if self.num_classes == 1: #binary       
-            return torch.flatten(x)
-        else:
-            return x
-        #return F.log_softmax(x, dim=1)
 
 
 class GUNET(torch.nn.Module):
@@ -298,9 +201,10 @@ class GUNET(torch.nn.Module):
 
 
 class GCNModel(ModelInterface):
-    def __init__(self, data, labels, test_set_idx, task_type_node=True, type=GraphConvClusterPool):
+    def __init__(self, data, labels, test_set_idx, task_type_node=True, type=GraphConvPoolNN, pooltype=ClusterPooling):
         super().__init__(data, labels, test_set_idx)
         self.architecture = type
+        self.pooltype = pooltype
         self.task_type_node = task_type_node
         self.clfName = self.architecture.archName
         if self.architecture == GUNET:
@@ -308,10 +212,10 @@ class GCNModel(ModelInterface):
         self.n_node_features = len(data[0][0][0])
         self.n_labels = len(labels)
 
-    def train_model(self, replace_model=True):
+    def train_model(self, replace_model=True, verbose=False):
         "Function to fit the model to the data"
         if self.clf is None or replace_model is True:
-            self.clf = self.architecture(self.n_node_features, self.task_type_node, self.n_labels, self.hid_channel, self.device)
+            self.clf = self.architecture(self.n_node_features, self.task_type_node, self.n_labels, self.pooltype, self.hid_channel, self.device)
             if self.architecture == GUNET:
                 self.clfName = self.clfName + " " + str(self.clf.poolingType)
             self.clf.to(self.device)
@@ -319,31 +223,23 @@ class GCNModel(ModelInterface):
         if hasattr(self.clf, "optimizer"):
             optimizer = self.clf.optimizer
         else:
-            optimizer = torch.optim.Adam(self.clf.parameters(), lr=0.01)
+            optimizer = torch.optim.Adam(self.clf.parameters(), lr=0.0005)
             #optimizer = torch.optim.Adam(self.clf.parameters(), lr=0.00025, weight_decay=1e-4)
 
         self.clf.train()
         if self.bnry:
-            #loss_func = F.nll_loss #nll_loss is logloss
-            def BCELoss_class_weighted(weights):
-                def loss(input, target):
-                    input = torch.clamp(input,min=1e-7,max=1-1e-7)
-                    bce = - weights[1] * target * torch.log(input) - \
-                            weights[0] * (1 - target) * torch.log(1 - input)
-                    return torch.mean(bce)
-                return loss
-            loss_func = BCELoss_class_weighted([1,1])
+            loss_func = torch.nn.BCELoss()
         else:
             loss_func = torch.nn.CrossEntropyLoss()
 
         metric_list = []
         tloss = []
+        vloss = []
         vmetric_list = []
 
         batch_size = 128
-
-        #best_mod = copy.deepcopy(self.clf.state_dict())
-        print(f"Running training procedure for {self.clf.n_epochs} epochs...")
+        best_mod = copy.deepcopy(self.clf.state_dict())
+        if verbose: print(f"Running training procedure for {self.clf.n_epochs} epochs...")
         for epoch in range(self.clf.n_epochs + 1):
             tot_lss = 0.0   
             
@@ -352,7 +248,6 @@ class GCNModel(ModelInterface):
             
             #for index, data in enumerate(self.train): #For every graph in the data set
             listindex = list(range(1, int(len(self.train) / batch_size) + 2))
-            listindex.reverse()
             for index in listindex:
                 starti = (index-1)*batch_size
                 endi = min(index*batch_size, len(self.train))
@@ -371,29 +266,28 @@ class GCNModel(ModelInterface):
                 out = self.clf(data)
                 
                 class_lbls = data[2]
-
-                loss = loss_func(out, class_lbls) #Now get the loss based on these outputs and the actual labels of the graph
-                #print(loss.item())
-
+                
+                loss = loss_func(out, class_lbls.float()) #Now get the loss based on these outputs and the actual labels of the graph
                 y_train_probs.extend(out.cpu().detach().numpy().tolist())
                 tot_lss += loss.item()
 
-                if math.isnan(loss.item()):
-                    print("\t\tError in loss in Epoch: " + str(epoch+1) + "/" + str(self.clf.n_epochs))
-                    if torch.isnan(out).nonzero().size(0) > 0: #We have a nan output
-                        print("\t\t Error in output of the network: " + str(torch.isnan(out).nonzero().size(0)), " nan values")
-                    return metric_list, tloss, vmetric_list
-
                 loss.backward()              
                 optimizer.step()
-            
-            #From Diehl paper
-            if epoch > 0 and epoch % 50 == 0:
-                for g in optimizer.param_groups:
-                    g['lr'] = g['lr'] / 2
+            tot_lss = tot_lss / len(listindex)
+            # From Diehl paper
+            #if epoch > 0 and epoch % 50 == 0:
+            #    for g in optimizer.param_groups:
+            #        g['lr'] = g['lr'] / 2
 
-            """prec, rec, threshold =  sklearn.metrics.precision_recall_curve(self.y_train, y_train_probs)
-            if not ((prec+rec) == 0).any():
+            #prec, rec, threshold =  sklearn.metrics.precision_recall_curve(self.y_train, y_train_probs)
+            #f1s = (2*(prec * rec)) / ((prec + rec) + 1e-10)
+            #self.threshold = threshold[np.argmax(f1s)]
+            
+            #print("maxf1 ", np.max(f1s))
+            #if np.isnan(np.max(f1s)) or np.isinf(np.max(f1s)):
+            #    print(f1s)
+            #input()
+            """if not ((prec+rec) == 0).any():
                 f1s = (2*(prec * rec)) / (prec + rec)
                 train_f1 = np.max(f1s)
                 if len(metric_list) == 0 or train_f1 > np.max(metric_list):
@@ -405,21 +299,48 @@ class GCNModel(ModelInterface):
             #print(f"\t\t\t Epoch: {epoch} ({toc-tic:0.4f})")
             
             y_train_labels = np.round(y_train_probs)
+            #y_train_labels = (y_train_probs > self.threshold).astype(int)
             if not self.bnry:
                 y_train_labels = np.argmax(y_train_labels, axis=1)
             train_metric = sklearn.metrics.accuracy_score(self.y_train, y_train_labels)
             metric_list.append(train_metric)
-            tloss.append(tot_lss/ len(self.train))
-            print("\t\t\t Label balance:", np.count_nonzero(y_train_labels == 0), np.count_nonzero(y_train_labels == 1))
-            print("\t\t\t Actual balance:", np.count_nonzero(np.array(self.y_train) == 0), np.count_nonzero(np.array(self.y_train) == 1))
+            
+            tloss.append(tot_lss)
+            #print("\t\t\t Label balance:", np.count_nonzero(y_train_labels == 0), np.count_nonzero(y_train_labels == 1))
+            #print("\t\t\t Actual balance:", np.count_nonzero(np.array(self.y_train) == 0), np.count_nonzero(np.array(self.y_train) == 1))
             #input()
-            #input()
-            """if epoch % 3 == 0 and epoch > 0:
+            if verbose:
+                print(f"\t\tEpoch {epoch} Train Accuracy: {metric_list[-1]:.4f} --- Train Loss: {tot_lss:.4f}")#--- Threshold: {self.threshold}")
+            if True:
+            #if epoch % 10 == 0 and epoch > 0:
                 self.clf.train(mode=False)
-                valid_f1 = self.validate_model()
-                self.clf.train()
+                val_loss = 0.0
+                vlbls = []
+                for data in self.valid: #For every graph in the data set
+                    batch = torch.tensor([0 for _ in range(data[0].size(0))])
+                    data.append(batch)
+                    out = self.clf(data) #Get the labels from all the nodes in one graph 
+                    val_loss += loss_func(out, data[2].float())
+                    if type(out) == tuple: out = out[0]
+                    vlbls.extend(np.round(out.detach().numpy()).tolist())
+
+                    
+            
+                    #labels = ((out > self.threshold).int()).cpu().detach().numpy()
+
+                    #self.y_valid_dist.extend(out.cpu().detach().numpy().tolist())
                 
-                prec, rec, threshold =  sklearn.metrics.precision_recall_curve(self.y_valid, self.y_valid_dist)
+                self.clf.train()
+                val_loss = val_loss.item() / len(self.valid)
+                #print(self.valid)
+                vloss.append(val_loss)
+                valid_metric = sklearn.metrics.accuracy_score(self.y_valid, vlbls)
+                vmetric_list.append(valid_metric)
+                if valid_metric >= np.max(vmetric_list): #Best validation score thusfar
+                    best_mod = copy.deepcopy(self.clf.state_dict())
+                #else:
+                #    self.clf.load_state_dict(best_mod)
+                """prec, rec, threshold =  sklearn.metrics.precision_recall_curve(self.y_valid, self.y_valid_dist)
                 if not ((prec+rec) == 0).any():
                     f1s = (2*(prec * rec)) / (prec + rec)
                     valid_f1 = np.max(f1s)
@@ -427,17 +348,44 @@ class GCNModel(ModelInterface):
                 if valid_f1 >= np.max(vmetric_list): #Best validation score thusfar
                     best_mod = copy.deepcopy(self.clf.state_dict())
                     if not ((prec+rec) == 0).any(): #Can we calculate the best threshold?
-                        self.threshold = threshold[np.argmax(f1s)] #Set the threshhold to the most optimal one
+                        self.threshold = threshold[np.argmax(f1s)] #Set the threshhold to the most optimal one"""
                     
-                print("\n")
-                print("\t\tLoss in Epoch " + str(epoch) + ": " + str(tot_lss))
-                print(f"\t\tValid {self.MetricName}: {valid_f1:.4f} (Best: {np.max(vmetric_list):.4f}, Thresh: {self.threshold:.4f})")"""
+                if verbose: print(f"\t\t\tValidation Loss in Epoch {epoch}: {val_loss:.4f}")
+                if verbose: print(f"\t\t\tValidation Accuracy in Epoch {epoch}: {valid_metric:.4f}")
+                #print(f"\t\tValid {self.MetricName}: {valid_f1:.4f} (Best: {np.max(vmetric_list):.4f}, Thresh: {self.threshold:.4f})")
 
 
             #print(f"\t\tEpoch {epoch} Train {self.MetricName}: {train_f1:.4f}, Best: {np.max(metric_list):.4f}")
             #print(f"\t\tEpoch {epoch} Train {self.MetricName}: {np.max(metric_list):.4f}")
-            print(f"\t\tEpoch {epoch} Train Accuracy: {metric_list[-1]:.4f}")
+            
 
-        #self.clf.load_state_dict(best_mod)
+            
+            """if metric_list[-1] == np.max(metric_list):
+                best_mod = copy.deepcopy(self.clf.state_dict())
+            elif epoch > 0 and epoch % 10 == 0:
+                self.clf.load_state_dict(best_mod)"""
+        #print("Max train accuracy: ", np.max(metric_list))
+        #print("Max valid accuracy: ", np.max(vmetric_list))
+        """sns.set()
+        sns.set_style("darkgrid")
+        fig, axes = plt.subplots(2, 2)
+        fig.tight_layout(pad=1.0)
+        fig.suptitle("Training metrics")
+        axes[0][0].set_title("Training loss")
+        axes[0][1].set_title("Validation loss")
+        axes[1][0].set_title(f"Training Accuracy")
+        axes[1][1].set_title(f"Validation Accuracy")
+        
+        sns.lineplot(tloss, ax=axes[0][0])
+        sns.lineplot(vloss, ax=axes[0][1])
+
+        sns.lineplot(metric_list, ax=axes[1][0])
+        sns.lineplot(vmetric_list, ax=axes[1][1])"""
+
+        #plt.figure()
+        
+        #plt.plot(tloss)
+        #plt.show()
+        self.clf.load_state_dict(best_mod)
         self.clf.train(mode=False)
-        return metric_list, tloss, vmetric_list
+        return metric_list, tloss, vmetric_list, vloss

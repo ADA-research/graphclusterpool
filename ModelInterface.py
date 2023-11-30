@@ -7,6 +7,9 @@ import numpy as np
 import math
 from sklearn import metrics
 
+from matplotlib import pyplot as plt
+import seaborn as sns
+
 "Model Interface, few base definitions that each model needs"
 class ModelInterface:
     "Internal data object. Is in general a two dimensional list of self.data[patient][tensor]"
@@ -26,7 +29,7 @@ class ModelInterface:
         self.bnry = (self.n_labels == 2)
         self.MetricName = "F1-Score" if self.bnry else "Accuracy"
         
-        self.hid_channel = 64
+        self.hid_channel = 32
         
         self.clf = None
         self.clfName = "ModelInterface"
@@ -45,7 +48,7 @@ class ModelInterface:
 
         self.generate_train_validation(validation=True)
 
-    def generate_train_validation(self, split=0.8, validation=False):
+    def generate_train_validation(self, split=0.89, validation=False):
         "Creates a train/validation/test split from the internal data object"
 
         train_index = int(len(self.data) * split)
@@ -102,7 +105,7 @@ class ModelInterface:
         for patient in self.test:
             self.y_test.extend(patient[2].cpu().numpy().tolist())
 
-    def train_model(self, replace_model=True):
+    def train_model(self, replace_model=True, verbose=True):
         "Function to fit the model to the train set"
         pass
 
@@ -145,7 +148,6 @@ class ModelInterface:
     def calculate_test_metrics(self):
         #self.correct_test_labels()
         precision, recall, f, _ = metrics.precision_recall_fscore_support(self.y_test, self.y_test_pred, average=None, labels=self.labels)
-        brier = metrics.brier_score_loss(self.y_test, self.y_test_dist)
         p,r, t = metrics.precision_recall_curve(self.y_test, self.y_test_dist)
         f1s = (2*(p * r)) / (p + r)
         #if self.bnry: #Binary, return positive F1 score
@@ -155,23 +157,18 @@ class ModelInterface:
     def get_valid_preds(self):
         self.validate_model()
         return self.y_valid, self.y_valid_dist
-    
+
     "(int) folds: Number of folds. If k-cross, then folds <= len(data)"
     "(Boolean) kCross: Use k-fold-cross-validation"
     "(Boolean) display: Print statistics"
     "(Boolean) record_roc: Save and return test probabilities and values for ROC curve"
-    def run_folds(self, folds, kCross=True, display=True, record_roc=True, validation=True):
+    def run_folds(self, folds, kCross=True, display=True, validation=True):
         "Function that runs train and test for new models"
-        F1 = []
-        p_class = []
-        r_class = []
-        valid_preds = []
-        test_preds = []
-        train_info = []
-        t_holds = []
-        prob_var = []
-        test_examples = []
-        best_f1s = []
+        
+        train_acc_f = []
+        train_loss_f = []
+        validation_acc_f = []
+        validation_loss_f = []
 
         if not kCross:
             self.generate_train_validation(validation=True)
@@ -200,7 +197,28 @@ class ModelInterface:
                     self.valid = []
                 self.format_data_values(validation=True)
 
-            ti = self.train_model()
+            t_acc, t_loss, v_acc, v_loss = self.train_model(verbose=False)
+
+            train_acc_f.append(t_acc)
+            train_loss_f.append(t_loss)
+            validation_acc_f.append(v_acc)
+            validation_loss_f.append(v_loss)
+
+            if display:
+                elapsed_time = time.time() - start_time
+                time_mes = "s"
+                if elapsed_time > 100.0: #Over a hundred seconds
+                    elapsed_time = elapsed_time / 60.0
+                    time_mes = "m"
+                print(f"({elapsed_time:.3f} {time_mes})")
+                mtacc = np.max(t_acc)
+                mvacc = np.max(v_acc)
+                mtloss = np.min(t_loss)
+                mvloss = np.min(v_loss)
+
+                print(f"\t\t{mtacc:.4f} Best Train Accuracy, {mvacc:.4f} Best Validation Accuracy.")
+                print(f"\t\t{mtloss:.4f} Lowest Train Loss, {mvloss:.4f} Lowest Validation Loss")
+            """
             train_info.append(ti)
             
             prob_var.extend(self.test_model())
@@ -232,14 +250,54 @@ class ModelInterface:
                     elapsed_time = elapsed_time / 60.0
                     time_mes = "m"
                 
-                print(f" ({elapsed_time:.3f} {time_mes}) [{res:.4f} Achieved F1, {b:.4f} Best F1]")
+                print(f" ({elapsed_time:.3f} {time_mes}) [{res:.4f} Achieved F1, {b:.4f} Best F1]")"""
+        
+        sns.set()
+        sns.set_style("darkgrid")
+        fig, axes = plt.subplots(2, 2)
+        fig.tight_layout(pad=1.0)
+        fig.suptitle(f"Training metrics {self.clfName} ({str(self.clf.poolLayer)})")
+        fig.subplots_adjust(top=0.9)
 
+        tloss = np.mean(train_loss_f, axis=0)
+        vloss = np.mean(validation_loss_f, axis=0)
+        tacc = np.mean(train_acc_f, axis=0)
+        vacc = np.mean(validation_acc_f, axis=0)
 
-        print("\tTest set neighbour prediction Variance: ", np.mean(prob_var), " +/- ", np.std(prob_var))
-        print("\Best possible Test set score: ", np.mean(best_f1s), " +/- ", np.std(best_f1s))
+        min_tloss = np.min(train_loss_f, axis=1)
+        min_vloss = np.min(validation_loss_f, axis=1)
+        avg_min_t_loss = np.mean(min_tloss)
+        avg_min_v_loss = np.mean(min_vloss)
+        std_min_t_loss = np.std(min_tloss)
+        std_min_v_loss = np.std(min_vloss)
 
-        for i in range(len(self.test)):
-            test_examples[i][0] = test_examples[i][0] / folds
-            test_examples[i].append(np.average(t_holds))
+        max_tacc = np.max(train_acc_f, axis=1)
+        max_vacc = np.max(validation_acc_f, axis=1)
+        avg_max_t_acc = np.mean(max_tacc)
+        avg_max_v_acc = np.mean(max_vacc)
+        std_max_t_acc = np.std(max_tacc)
+        std_max_v_acc = np.std(max_vacc)
 
-        return F1, p_class, r_class, valid_preds, folds, train_info, test_preds, t_holds, prob_var, test_examples
+        #print(validation_acc_f)
+        #print()
+
+        #print(max_vacc)
+        #print()
+
+        #print(avg_max_v_acc)
+        #print(var_max_v_acc)
+        
+
+        axes[0][0].set_title(f"Training loss ({avg_min_t_loss:.4f} ± {std_min_t_loss:.4f})")
+        axes[0][1].set_title(f"Validation loss ({avg_min_v_loss:.4f} ± {std_min_v_loss:.4f})")
+        axes[1][0].set_title(f"Training Accuracy ({avg_max_t_acc:.4f} ± {std_max_t_acc:.4f})")
+        axes[1][1].set_title(f"Validation Accuracy ({avg_max_v_acc:.4f} ± {std_max_v_acc:.4f})")
+        
+        sns.lineplot(tloss, ax=axes[0][0])
+        sns.lineplot(vloss, ax=axes[0][1])
+
+        sns.lineplot(tacc, ax=axes[1][0])
+        sns.lineplot(vacc, ax=axes[1][1])
+
+        plt.show()
+            

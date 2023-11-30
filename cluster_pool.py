@@ -228,8 +228,10 @@ class ClusterPooling(torch.nn.Module):
         
         #We just copy the cluster feature into every node and do nothing...
         node_maps = unpool_info.cluster_map
+        n_nodes = 0
+        for c in node_maps:
+            node_maps += len(c)
         import numpy as np
-        n_nodes = np.sum([len(c) for c in node_maps])
         repack = np.array([-1 for _ in range(n_nodes)])
         for i,c in enumerate(node_maps):
             repack[c] = i
