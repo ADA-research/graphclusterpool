@@ -256,17 +256,12 @@ class GCNModel(ModelInterface):
                 batchlist = list(itertools.chain.from_iterable(itertools.repeat(i, c.size(0)) for i, c in enumerate(nodes)))
                 batchtensor = torch.tensor(batchlist, device=self.device)
                 data = [torch.cat(nodes), torch.cat(edges), torch.cat(labels), batchtensor]
-                print(f"\t\t\t\t Train instance: {starti}-{endi}/{len(self.train)} ")
                 optimizer.zero_grad()
                 out = self.clf(data)
                 
                 class_lbls = data[2]
                 if not self.bnry:
                     class_lbls = torch.nn.functional.one_hot(class_lbls, self.n_labels)
-                
-                ##print(out.size(), out.dtype)
-                #print("\n\n\n")
-                #print(class_lbls.size(), class_lbls.dtype, class_lbls.float().dtype)
 
                 loss = loss_func(out, class_lbls.float()) #Now get the loss based on these outputs and the actual labels of the graph
 
@@ -285,23 +280,11 @@ class GCNModel(ModelInterface):
             #f1s = (2*(prec * rec)) / ((prec + rec) + 1e-10)
             #self.threshold = threshold[np.argmax(f1s)]
             
-            #print("maxf1 ", np.max(f1s))
-            #if np.isnan(np.max(f1s)) or np.isinf(np.max(f1s)):
-            #    print(f1s)
-            #input()
-            """if not ((prec+rec) == 0).any():
-                f1s = (2*(prec * rec)) / (prec + rec)
-                train_f1 = np.max(f1s)
-                if len(metric_list) == 0 or train_f1 > np.max(metric_list):
-                    best_mod = copy.deepcopy(self.clf.state_dict())
-                    self.threshold = threshold[np.argmax(f1s)]"""
-
-            #train_f1 = train_f1 / len(self.train)
-            
-            y_train_labels = np.round(y_train_probs)
             #y_train_labels = (y_train_probs > self.threshold).astype(int)
             if not self.bnry:
-                y_train_labels = np.argmax(y_train_labels, axis=1)
+                y_train_labels = np.argmax(y_train_probs, axis=1)
+            else:
+                y_train_labels = np.round(y_train_probs)
             train_metric = sklearn.metrics.accuracy_score(self.y_train, y_train_labels)
             metric_list.append(train_metric)
             
@@ -309,7 +292,7 @@ class GCNModel(ModelInterface):
             #print("\t\t\t Label balance:", np.count_nonzero(y_train_labels == 0), np.count_nonzero(y_train_labels == 1))
             #print("\t\t\t Actual balance:", np.count_nonzero(np.array(self.y_train) == 0), np.count_nonzero(np.array(self.y_train) == 1))
             #input()
-            if verbose:
+            if verbose or True:
                 print(f"\t\tEpoch {epoch} Train Accuracy: {metric_list[-1]:.4f} --- Train Loss: {tot_lss:.4f}")#--- Threshold: {self.threshold}")
             if True:
             #if epoch % 10 == 0 and epoch > 0:
@@ -325,17 +308,13 @@ class GCNModel(ModelInterface):
                         val_lab = torch.nn.functional.one_hot(val_lab, self.n_labels)
                     val_loss += loss_func(out, val_lab.float())
                     if type(out) == tuple: out = out[0]
-                    vlbls.extend(np.round(out.detach().numpy()).tolist())
-
                     
-            
-                    #labels = ((out > self.threshold).int()).cpu().detach().numpy()
-
-                    #self.y_valid_dist.extend(out.cpu().detach().numpy().tolist())
+                    if not self.bnry:
+                        out = out.argmax(dim=1)
+                    vlbls.extend(np.round(out.detach().numpy()).tolist())
                 
                 self.clf.train()
                 val_loss = val_loss.item() / len(self.valid)
-                #print(self.valid)
                 vloss.append(val_loss)
                 valid_metric = sklearn.metrics.accuracy_score(self.y_valid, vlbls)
                 vmetric_list.append(valid_metric)
@@ -361,34 +340,6 @@ class GCNModel(ModelInterface):
             #print(f"\t\tEpoch {epoch} Train {self.MetricName}: {train_f1:.4f}, Best: {np.max(metric_list):.4f}")
             #print(f"\t\tEpoch {epoch} Train {self.MetricName}: {np.max(metric_list):.4f}")
             
-
-            
-            """if metric_list[-1] == np.max(metric_list):
-                best_mod = copy.deepcopy(self.clf.state_dict())
-            elif epoch > 0 and epoch % 10 == 0:
-                self.clf.load_state_dict(best_mod)"""
-        #print("Max train accuracy: ", np.max(metric_list))
-        #print("Max valid accuracy: ", np.max(vmetric_list))
-        """sns.set()
-        sns.set_style("darkgrid")
-        fig, axes = plt.subplots(2, 2)
-        fig.tight_layout(pad=1.0)
-        fig.suptitle("Training metrics")
-        axes[0][0].set_title("Training loss")
-        axes[0][1].set_title("Validation loss")
-        axes[1][0].set_title(f"Training Accuracy")
-        axes[1][1].set_title(f"Validation Accuracy")
-        
-        sns.lineplot(tloss, ax=axes[0][0])
-        sns.lineplot(vloss, ax=axes[0][1])
-
-        sns.lineplot(metric_list, ax=axes[1][0])
-        sns.lineplot(vmetric_list, ax=axes[1][1])"""
-
-        #plt.figure()
-        
-        #plt.plot(tloss)
-        #plt.show()
         self.clf.load_state_dict(best_mod)
         self.clf.train(mode=False)
         return metric_list, tloss, vmetric_list, vloss
