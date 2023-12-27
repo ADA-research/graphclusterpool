@@ -1,14 +1,17 @@
 from collections import namedtuple
-from re import S
 
 import torch
 import torch.nn.functional as F
-from torch_scatter import scatter_mean, scatter_add
+from torch_scatter import scatter_add
+#from torch_scatter import scatter_mean
 from torch_sparse import coalesce
 from torch_geometric.utils import softmax
 
+from line_profiler import LineProfiler
+
 def calculate_components(n_nodes: int, edges: torch.tensor):
-        #From https://stackoverflow.com/questions/10301000/python-connected-components
+        # From https://stackoverflow.com/questions/10301000/python-connected-components
+        # Can we do this as tensor operations that yield a cluster index per node?
         def get_all_connected_groups(graph):
             already_seen = set()
             result = []
@@ -37,27 +40,60 @@ def calculate_components(n_nodes: int, edges: torch.tensor):
         
         return get_all_connected_groups(adj_list)
 
+#@profile
+def calculate_components_torch(n_nodes: int, edges: torch.tensor):
+    cluster_idx = torch.zeros(n_nodes, device=edges.device, dtype=torch.int64)
+    already_seen = set()
+    edges = edges.T
+    
+    adjacency_m = torch.zeros([n_nodes, n_nodes], device=edges.device)
+    # Fill the matrix, assuming this is a cheap operation
+    for e in edges:
+        adjacency_m[e[0].item(),e[1].item()] = 1
+        adjacency_m[e[1].item(),e[0].item()] = 1
+
+    for i in range(n_nodes):
+        adjacency_m[i,i] = 1
+
+    clusters = []
+    for id, row in enumerate(adjacency_m):
+        if id in already_seen:
+            continue
+        current_clus = row.clone()
+
+        new_iter = torch.zeros(current_clus.size(), device=edges.device)
+
+        while not torch.all(current_clus == new_iter):
+            #print("hello")
+            current_clus = current_clus + new_iter
+            current_clus = (current_clus > 0).int()
+            a = adjacency_m * current_clus
+            b = torch.sum(a, dim=1)
+            c = (b > 0)
+            new_iter = c.int()
+        #print()
+        clusters.append(current_clus > 0)
+        already_seen = already_seen.union(set(current_clus.nonzero().flatten().tolist()))
+    #print(a, n_nodes, a / n_nodes)
+    
+    #print(len(already_seen), len(clusters), n_nodes)
+
+    for i, e in enumerate(clusters):
+        cluster_idx[e] = i
+    #print(cluster_idx.nonzero().size())
+    return cluster_idx, len(clusters)
+
 class ClusterPooling(torch.nn.Module):
     r""" REWRITE THIS
     
-    The edge pooling operator from the `"Towards Graph Pooling by Edge
-    Contraction" <https://graphreason.github.io/papers/17.pdf>`_ and
-    `"Edge Contraction Pooling for Graph Neural Networks"
-    <https://arxiv.org/abs/1905.10990>`_ papers.
+    The cluster pooling operator from the paper `"Paper name here" <paper url here>`
 
     In short, a score is computed for each edge.
-    Edges are contracted iteratively according to that score unless one of
-    their nodes has already been part of a contracted edge.
-
-    To duplicate the configuration from the "Towards Graph Pooling by Edge
-    Contraction" paper, use either
-    :func:`EdgePooling.compute_edge_score_softmax`
-    or :func:`EdgePooling.compute_edge_score_tanh`, and set
-    :obj:`add_to_edge_score` to :obj:`0`.
-
-    To duplicate the configuration from the "Edge Contraction Pooling for
-    Graph Neural Networks" paper, set :obj:`dropout` to :obj:`0.2`.
-
+    Edges are contracted according to their scores. Based on the selected edges,
+    graph components are calculated and contracted through node coalescing.
+    The node features in the components are combined by adding them together, where each
+    node contributes 1/n of its features to the cluster.
+    
     Args:
         in_channels (int): Size of each input sample.
         edge_score_method (function, optional): The function to apply
@@ -133,7 +169,6 @@ class ClusterPooling(torch.nn.Module):
         #First we drop the self edges as those cannot be clustered
         msk = edge_index[0] != edge_index[1]
         edge_index = edge_index[:,msk]
-
         e = torch.cat([x[edge_index[0]], x[edge_index[1]]], dim=-1) #Concatenates the source feature with the target features
         e = self.lin(e).view(-1) #Apply linear NN on the edge "features", view(-1) to reshape to 1 dimension
         e = F.dropout(e, p=self.dropout, training=self.training)
@@ -145,9 +180,9 @@ class ClusterPooling(torch.nn.Module):
 
         return x, edge_index, batch, unpool_info
     
-    """ New merge function for combining the nodes """    
+    """ New merge function for combining the nodes """
     def __merge_edges__(self, x, edge_index, batch, edge_score):
-        cluster = torch.empty_like(batch, device=torch.device('cpu'))
+        fcluster = torch.empty_like(batch, device=torch.device('cpu'))
 
         #We don't deal with double edged node pairs e.g. [a,b] and [b,a] in edge_index
         
@@ -158,20 +193,22 @@ class ClusterPooling(torch.nn.Module):
             edge_mask = (edge_score >= torch.median(edge_score))
         
         sel_edge = edge_mask.nonzero().flatten()        
-        new_edge = torch.index_select(edge_index, dim=1, index=sel_edge).to(cluster.device)
+        new_edge = torch.index_select(edge_index, dim=1, index=sel_edge).to(x.device)
         
-        components = calculate_components(x.size(0), new_edge) #47.3% of time
-        
-        i = 0
-        for c in components: #15% of time
-            cluster[c] = i
-            i += 1
-        
+        #components = calculate_components(x.size(0), new_edge) #47.3% of time
+        components = None
+        cluster, i = calculate_components_torch(x.size(0), new_edge) #
+        #print(cluster)
+        # Unpack the components into a cluster index for each node
+        #i = 0
+        #for c in components: #15% of time
+        #    cluster[c] = i
+        #    i += 1
+
         cluster = cluster.to(x.device)
         new_edge = new_edge.to(x.device)
 
         #We compute the new features as the average of the cluster's nodes' features
-        #We can do something with the edge weights here: for each node compute scalar + mean(ni + nj), then mean all of these new features --> This has changed
         new_edge_score = edge_score[sel_edge] #Get the scores that come into play
         node_reps = (x[new_edge[0]] + x[new_edge[1]]) #/2 (used to dived by two)
         node_reps = node_reps * new_edge_score.view(-1,1)
@@ -226,7 +263,8 @@ class ClusterPooling(torch.nn.Module):
             * **batch** *(LongTensor)* - The new batch vector.
         """
         
-        #We just copy the cluster feature into every node and do nothing...
+        # We just copy the cluster feature into every node
+        # TODO: This can be done better / cleaner / more efficiently
         node_maps = unpool_info.cluster_map
         n_nodes = 0
         for c in node_maps:
@@ -236,57 +274,7 @@ class ClusterPooling(torch.nn.Module):
         for i,c in enumerate(node_maps):
             repack[c] = i
         new_x = x[repack]
-        
-        """"node_factors = torch.ones(n_nodes, device=new_x.device)
-        node_factors = torch.index_add(node_factors, dim=0, index=unpool_info.edge_index[0][unpool_info.edge_mask], source=unpool_info.old_edge_score[unpool_info.edge_mask])
-        node_factors = torch.index_add(node_factors, dim=0, index=unpool_info.edge_index[1][unpool_info.edge_mask], source=unpool_info.old_edge_score[unpool_info.edge_mask])
 
-        #print(node_factors)
-        new_x = new_x / node_factors.view(-1,1)
-
-        if torch.any(torch.isnan(new_x)):
-            nnn = torch.isnan(new_x)
-            print("nan in new_x")
-            print(new_x)
-            print("Percentage of nan: ", torch.sum(nnn) / (nnn.size(0) * nnn.size(1)))
-
-            print(node_factors)
-            if torch.any(torch.isnan(node_factors)):
-                nnn = torch.isnan(node_factors)
-                print("Percentage nf of nan: ", torch.sum(nnn) / nnn.size(0))
-
-            input()"""
-        
-
-        #unpool_info.old_edge_score --> how can we use the old edgescores to modify the nodes coming out of the cluster? What if two edges of one node were selected?
-        #print(new_x.size())
-        #Now maybe do something with the edge score on the new_x?
-        """edges = unpool_info.selected_edges.to(new_x.device)
-        scores = unpool_info.new_edge_score.view(-1,1).to(new_x.device)
-        
-        reduce = torch.bincount(edges.flatten()) #How should we divide the adjusted cluster features?
-        selected = reduce.nonzero().flatten()
-        adapted_left = new_x[edges[0]] / scores
-        adapted_right = new_x[edges[1]] / scores
-        
-        #edges = unpool_info.selected_edges.to(new_x.device)
-        
-        new_x[selected] = 0
-        #print(adapted_left.size())
-        #print(new_x[edges[0]].size())
-        #print(edges[0].size())
-        new_x[edges[0]] += adapted_left
-        new_x[edges[1]] += adapted_right
-        #print(new_x.size())
-
-        
-        #print("unfolded size:", new_x.size())
-        #print("node count ", reduce.size())
-        #print("Nodes that occur at least once", selected.size())
-        #print(new_x[selected].size())
-        #print(reduce[selected].size())
-        new_x[selected] = new_x[selected] / reduce[selected].view(-1,1)"""
-        #print(new_x.size())
         return new_x, unpool_info.edge_index, unpool_info.batch
 
     def __repr__(self) -> str:

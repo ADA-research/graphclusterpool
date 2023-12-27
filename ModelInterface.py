@@ -1,4 +1,3 @@
-from re import A
 import time
 import random
 import torch
@@ -16,8 +15,7 @@ class ModelInterface:
     "Each patient has three tensors and a string:"
     "[0]: Node tensor, containing each node and its features"
     "[1]: Edge tensor"
-    "[2]: Node label tensor, containing the class of each node, index pairwise to [0]"
-    "[3]: String indicating from which .json it was created"
+    "[2]: Node label tensor, containing the class of each node"
 
     def __init__(self, data, labels, test_set_idx):
         "Receives data from controller"
@@ -27,13 +25,21 @@ class ModelInterface:
         self.labels = labels
         self.n_labels = len(labels)
         self.bnry = (self.n_labels == 2)
+        """if not self.bnry:
+            for i,e in enumerate(self.data):
+                if e[2].max() > 1:
+                    self.data[i][2] = torch.nn.functional.one_hot(e[2], self.n_labels)
+            for i,e in enumerate(self.test):
+                if e[2].max() > 1:
+                    self.test[i][2] = torch.nn.functional.one_hot(e[2], self.n_labels)"""
         self.MetricName = "F1-Score" if self.bnry else "Accuracy"
         
         self.hid_channel = 32
         
         self.clf = None
         self.clfName = "ModelInterface"
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') #'mps' if torch.backends.mps.is_available() else 'cpu')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        #self.device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
         print("Selected Device: ", self.device)
 
         self.maxSeed = 4294967295 #Maximum value in 32 bits
@@ -206,11 +212,10 @@ class ModelInterface:
 
             if display:
                 elapsed_time = time.time() - start_time
-                time_mes = "s"
-                if elapsed_time > 100.0: #Over a hundred seconds
-                    elapsed_time = elapsed_time / 60.0
-                    time_mes = "m"
-                print(f"({elapsed_time:.3f} {time_mes})")
+                elapsed_minutes = int( elapsed_time / 60.0 )
+                elapsed_seconds = elapsed_time % 60   
+                print(f"({elapsed_minutes} m {elapsed_seconds} s)")
+                
                 mtacc = np.max(t_acc)
                 mvacc = np.max(v_acc)
                 mtloss = np.min(t_loss)
@@ -218,40 +223,13 @@ class ModelInterface:
 
                 print(f"\t\t{mtacc:.4f} Best Train Accuracy, {mvacc:.4f} Best Validation Accuracy.")
                 print(f"\t\t{mtloss:.4f} Lowest Train Loss, {mvloss:.4f} Lowest Validation Loss")
-            """
-            train_info.append(ti)
+
+        def plot_line_with_std(ax, mean, std, color):
+            lower_bound = [M_new - Sigma for M_new, Sigma in zip(mean, std)]
+            upper_bound = [M_new + Sigma for M_new, Sigma in zip(mean, std)]
+            sns.lineplot(mean, ax=ax, color=color)
+            ax.fill_between([x for x in range(len(lower_bound) )], lower_bound, upper_bound, color=color, alpha=.3)
             
-            prob_var.extend(self.test_model())
-            res, pClass, rClass, b = self.calculate_test_metrics()
-            test_preds.append([self.y_test, self.y_test_dist])
-
-            F1.append(res)
-            p_class.append(pClass)
-            r_class.append(rClass)
-            best_f1s.append(b)
-
-            for i in range(len(self.test)):
-                value, name = self.get_test_example(idx=i)
-
-                if i >= len(test_examples):                    
-                    test_examples.append([value, name])
-                else:
-                    
-                    test_examples[i][0] += value
-
-            t_holds.append(self.threshold)
-            if record_roc:
-                valid_preds.append(self.get_valid_preds())           
-
-            if display:
-                elapsed_time = time.time() - start_time
-                time_mes = "s"
-                if elapsed_time > 100.0: #Over a hundred seconds
-                    elapsed_time = elapsed_time / 60.0
-                    time_mes = "m"
-                
-                print(f" ({elapsed_time:.3f} {time_mes}) [{res:.4f} Achieved F1, {b:.4f} Best F1]")"""
-        
         sns.set()
         sns.set_style("darkgrid")
         fig, axes = plt.subplots(2, 2)
@@ -278,26 +256,16 @@ class ModelInterface:
         std_max_t_acc = np.std(max_tacc)
         std_max_v_acc = np.std(max_vacc)
 
-        #print(validation_acc_f)
-        #print()
-
-        #print(max_vacc)
-        #print()
-
-        #print(avg_max_v_acc)
-        #print(var_max_v_acc)
-        
-
         axes[0][0].set_title(f"Training loss ({avg_min_t_loss:.4f} ± {std_min_t_loss:.4f})")
         axes[0][1].set_title(f"Validation loss ({avg_min_v_loss:.4f} ± {std_min_v_loss:.4f})")
         axes[1][0].set_title(f"Training Accuracy ({avg_max_t_acc:.4f} ± {std_max_t_acc:.4f})")
         axes[1][1].set_title(f"Validation Accuracy ({avg_max_v_acc:.4f} ± {std_max_v_acc:.4f})")
-        
-        sns.lineplot(tloss, ax=axes[0][0])
-        sns.lineplot(vloss, ax=axes[0][1])
 
-        sns.lineplot(tacc, ax=axes[1][0])
-        sns.lineplot(vacc, ax=axes[1][1])
 
+        plot_line_with_std(axes[0][0], tloss, np.std(train_loss_f, axis=0), color="red")
+        plot_line_with_std(axes[0][1], vloss, np.std(validation_loss_f, axis=0), color="red")
+        plot_line_with_std(axes[1][0], tacc, np.std(train_acc_f, axis=0), color="blue")
+        plot_line_with_std(axes[1][1], vacc, np.std(validation_acc_f, axis=0), color="blue")
+  
         plt.show()
             

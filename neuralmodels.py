@@ -18,16 +18,13 @@ from cluster_pool import ClusterPooling
 from torch_geometric.data import Data
 
 from ModelInterface import ModelInterface
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 
 """The model with the architecture from Diehl"""
 class GraphConvPoolNN(torch.nn.Module):
     archName = "GCN Pooling"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, hid_channel, device):
         super().__init__()
-        self.n_epochs = 500
+        self.n_epochs = 2
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = PoolLayer
@@ -209,7 +206,7 @@ class GCNModel(ModelInterface):
         self.clfName = self.architecture.archName
         if self.architecture == GUNET:
             self.clfName = self.clfName + "- ClusterPool"
-        self.n_node_features = len(data[0][0][0])
+        self.n_node_features = data[0][0].size(1)
         self.n_labels = len(labels)
 
     def train_model(self, replace_model=True, verbose=False):
@@ -244,9 +241,7 @@ class GCNModel(ModelInterface):
             tot_lss = 0.0   
             
             y_train_probs = []
-            tic = time.perf_counter()
             
-            #for index, data in enumerate(self.train): #For every graph in the data set
             listindex = list(range(1, int(len(self.train) / batch_size) + 2))
             for index in listindex:
                 starti = (index-1)*batch_size
@@ -261,13 +256,20 @@ class GCNModel(ModelInterface):
                 batchlist = list(itertools.chain.from_iterable(itertools.repeat(i, c.size(0)) for i, c in enumerate(nodes)))
                 batchtensor = torch.tensor(batchlist, device=self.device)
                 data = [torch.cat(nodes), torch.cat(edges), torch.cat(labels), batchtensor]
-                #print("\t\t\t\t Train instance:", index, "/", len(self.train) )
+                print(f"\t\t\t\t Train instance: {starti}-{endi}/{len(self.train)} ")
                 optimizer.zero_grad()
                 out = self.clf(data)
                 
                 class_lbls = data[2]
+                if not self.bnry:
+                    class_lbls = torch.nn.functional.one_hot(class_lbls, self.n_labels)
                 
+                ##print(out.size(), out.dtype)
+                #print("\n\n\n")
+                #print(class_lbls.size(), class_lbls.dtype, class_lbls.float().dtype)
+
                 loss = loss_func(out, class_lbls.float()) #Now get the loss based on these outputs and the actual labels of the graph
+
                 y_train_probs.extend(out.cpu().detach().numpy().tolist())
                 tot_lss += loss.item()
 
@@ -295,8 +297,6 @@ class GCNModel(ModelInterface):
                     self.threshold = threshold[np.argmax(f1s)]"""
 
             #train_f1 = train_f1 / len(self.train)
-            toc = time.perf_counter()
-            #print(f"\t\t\t Epoch: {epoch} ({toc-tic:0.4f})")
             
             y_train_labels = np.round(y_train_probs)
             #y_train_labels = (y_train_probs > self.threshold).astype(int)
@@ -320,7 +320,10 @@ class GCNModel(ModelInterface):
                     batch = torch.tensor([0 for _ in range(data[0].size(0))])
                     data.append(batch)
                     out = self.clf(data) #Get the labels from all the nodes in one graph 
-                    val_loss += loss_func(out, data[2].float())
+                    val_lab = data[2]
+                    if not self.bnry:
+                        val_lab = torch.nn.functional.one_hot(val_lab, self.n_labels)
+                    val_loss += loss_func(out, val_lab.float())
                     if type(out) == tuple: out = out[0]
                     vlbls.extend(np.round(out.detach().numpy()).tolist())
 
