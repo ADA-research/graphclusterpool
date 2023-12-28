@@ -342,4 +342,4 @@ class GCNModel(ModelInterface):
             
         self.clf.load_state_dict(best_mod)
         self.clf.train(mode=False)
-        return metric_list, tloss, vmetric_list, vloss
+        return metric_list, tloss, vmetric_list, vloss, best_mod

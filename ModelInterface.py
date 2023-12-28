@@ -1,6 +1,8 @@
 import time
+from datetime import datetime
 import random
 import torch
+import pickle
 
 import numpy as np
 import math
@@ -175,6 +177,9 @@ class ModelInterface:
         train_loss_f = []
         validation_acc_f = []
         validation_loss_f = []
+        models = []
+
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         if not kCross:
             self.generate_train_validation(validation=True)
@@ -203,12 +208,13 @@ class ModelInterface:
                     self.valid = []
                 self.format_data_values(validation=True)
 
-            t_acc, t_loss, v_acc, v_loss = self.train_model(verbose=False)
+            t_acc, t_loss, v_acc, v_loss, model = self.train_model(verbose=False)
 
             train_acc_f.append(t_acc)
             train_loss_f.append(t_loss)
             validation_acc_f.append(v_acc)
             validation_loss_f.append(v_loss)
+            models.append(model)
 
             if display:
                 elapsed_time = time.time() - start_time
@@ -229,43 +235,57 @@ class ModelInterface:
             upper_bound = [M_new + Sigma for M_new, Sigma in zip(mean, std)]
             sns.lineplot(mean, ax=ax, color=color)
             ax.fill_between([x for x in range(len(lower_bound) )], lower_bound, upper_bound, color=color, alpha=.3)
-            
-        sns.set()
-        sns.set_style("darkgrid")
-        fig, axes = plt.subplots(2, 2)
-        fig.tight_layout(pad=1.0)
-        fig.suptitle(f"Training metrics {self.clfName} ({str(self.clf.poolLayer)})")
-        fig.subplots_adjust(top=0.9)
+        
+        #Save data
+        resdict = {
+            "description": [self.clfName, str(self.clf.poolLayer)],
+            "train_loss_folds": train_loss_f,
+            "train_acc_folds": train_acc_f,
+            "validation_loss_folds": validation_loss_f,
+            "validation_acc_folds": validation_acc_f,
+            "models": models
+        }
 
-        tloss = np.mean(train_loss_f, axis=0)
-        vloss = np.mean(validation_loss_f, axis=0)
-        tacc = np.mean(train_acc_f, axis=0)
-        vacc = np.mean(validation_acc_f, axis=0)
+        with open(f"results/{timestamp}/result_dictionary.pickle", 'wb') as handle:
+            pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-        min_tloss = np.min(train_loss_f, axis=1)
-        min_vloss = np.min(validation_loss_f, axis=1)
-        avg_min_t_loss = np.mean(min_tloss)
-        avg_min_v_loss = np.mean(min_vloss)
-        std_min_t_loss = np.std(min_tloss)
-        std_min_v_loss = np.std(min_vloss)
+        if display:
+            sns.set()
+            sns.set_style("darkgrid")
+            fig, axes = plt.subplots(2, 2)
+            fig.tight_layout(pad=1.0)
+            fig.suptitle(f"Training metrics {self.clfName} ({str(self.clf.poolLayer)})")
+            fig.subplots_adjust(top=0.9)
 
-        max_tacc = np.max(train_acc_f, axis=1)
-        max_vacc = np.max(validation_acc_f, axis=1)
-        avg_max_t_acc = np.mean(max_tacc)
-        avg_max_v_acc = np.mean(max_vacc)
-        std_max_t_acc = np.std(max_tacc)
-        std_max_v_acc = np.std(max_vacc)
+            tloss = np.mean(train_loss_f, axis=0)
+            vloss = np.mean(validation_loss_f, axis=0)
+            tacc = np.mean(train_acc_f, axis=0)
+            vacc = np.mean(validation_acc_f, axis=0)
 
-        axes[0][0].set_title(f"Training loss ({avg_min_t_loss:.4f} ± {std_min_t_loss:.4f})")
-        axes[0][1].set_title(f"Validation loss ({avg_min_v_loss:.4f} ± {std_min_v_loss:.4f})")
-        axes[1][0].set_title(f"Training Accuracy ({avg_max_t_acc:.4f} ± {std_max_t_acc:.4f})")
-        axes[1][1].set_title(f"Validation Accuracy ({avg_max_v_acc:.4f} ± {std_max_v_acc:.4f})")
+            min_tloss = np.min(train_loss_f, axis=1)
+            min_vloss = np.min(validation_loss_f, axis=1)
+            avg_min_t_loss = np.mean(min_tloss)
+            avg_min_v_loss = np.mean(min_vloss)
+            std_min_t_loss = np.std(min_tloss)
+            std_min_v_loss = np.std(min_vloss)
+
+            max_tacc = np.max(train_acc_f, axis=1)
+            max_vacc = np.max(validation_acc_f, axis=1)
+            avg_max_t_acc = np.mean(max_tacc)
+            avg_max_v_acc = np.mean(max_vacc)
+            std_max_t_acc = np.std(max_tacc)
+            std_max_v_acc = np.std(max_vacc)
+
+            axes[0][0].set_title(f"Training loss ({avg_min_t_loss:.4f} ± {std_min_t_loss:.4f})")
+            axes[0][1].set_title(f"Validation loss ({avg_min_v_loss:.4f} ± {std_min_v_loss:.4f})")
+            axes[1][0].set_title(f"Training Accuracy ({avg_max_t_acc:.4f} ± {std_max_t_acc:.4f})")
+            axes[1][1].set_title(f"Validation Accuracy ({avg_max_v_acc:.4f} ± {std_max_v_acc:.4f})")
 
 
-        plot_line_with_std(axes[0][0], tloss, np.std(train_loss_f, axis=0), color="red")
-        plot_line_with_std(axes[0][1], vloss, np.std(validation_loss_f, axis=0), color="red")
-        plot_line_with_std(axes[1][0], tacc, np.std(train_acc_f, axis=0), color="blue")
-        plot_line_with_std(axes[1][1], vacc, np.std(validation_acc_f, axis=0), color="blue")
-  
-        plt.show()
+            plot_line_with_std(axes[0][0], tloss, np.std(train_loss_f, axis=0), color="red")
+            plot_line_with_std(axes[0][1], vloss, np.std(validation_loss_f, axis=0), color="red")
+            plot_line_with_std(axes[1][0], tacc, np.std(train_acc_f, axis=0), color="blue")
+            plot_line_with_std(axes[1][1], vacc, np.std(validation_acc_f, axis=0), color="blue")
+    
+            plt.show()
             

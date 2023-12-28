@@ -2,7 +2,6 @@ import argparse
 from ModelInterface import ModelInterface
 import neuralmodels as nm
 import pickle
-import random
 import torch
 from torch_geometric.nn.pool import EdgePooling
 from cluster_pool import ClusterPooling
@@ -18,6 +17,7 @@ def parser_function() -> argparse.ArgumentParser:
     parser.add_argument("--model", default="GCN", type=str, help="Model type. Default: GCN. Available: GCN-Diehl, GUNET, GUNET-Diehl")
     parser.add_argument("--dataset", default="PROTEIN", type=str, help="Data set name. Default: PROTEIN. Available: ")
     parser.add_argument("--task", default="node", type=str, help="Classification task for the model. Default: node. Available: graph")
+    parser.add_argument("--nodisplay", action=argparse.BooleanOptionalAction, help="Don't print results to the terminal and show no graphs at the end.")
     return parser
 
 def build_model(parser: argparse) -> ModelInterface:
@@ -88,4 +88,5 @@ if __name__ == "__main__":
 
     model = build_model(args)
     print("Model has been built")
-    model.run_folds(folds=1, kCross=False)
+    display = args.nodisplay is None or not args.nodisplay
+    model.run_folds(folds=3, kCross=False, display=display)
