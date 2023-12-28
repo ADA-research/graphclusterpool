@@ -1,8 +1,8 @@
 import time
-from datetime import datetime
 import random
 import torch
 import pickle
+from datetime import datetime
 
 import numpy as np
 import math
@@ -36,7 +36,9 @@ class ModelInterface:
                     self.test[i][2] = torch.nn.functional.one_hot(e[2], self.n_labels)"""
         self.MetricName = "F1-Score" if self.bnry else "Accuracy"
         
-        self.hid_channel = 32
+        #PROTEIN
+        #self.hid_channel = 32
+        self.hid_channel = 64
         
         self.clf = None
         self.clfName = "ModelInterface"

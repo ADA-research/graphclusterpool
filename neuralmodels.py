@@ -19,12 +19,71 @@ from torch_geometric.data import Data
 
 from ModelInterface import ModelInterface
 
-"""The model with the architecture from Diehl"""
+"""Architecture for protein:"""
+class GraphConvPoolNNProtein(torch.nn.Module):
+    archName = "GCN Pooling arch for Protein"
+    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, hid_channel, device):
+        super().__init__()
+        self.n_epochs = 1000
+        self.num_classes = num_classes
+        self.device = device
+        self.poolLayer = PoolLayer
+        self.learningrate = 0.0005
+        
+        if self.num_classes == 2: #binary
+            self.num_classes = 1
+
+        self.task_type_node = task_type_node
+
+        dropout=0.0
+        dropout_pool=0.0
+        self.dropout = torch.nn.Dropout(p=dropout)
+
+        self.conv1 = GCNConv(node_features, hid_channel)
+
+        self.pool1 = PoolLayer(hid_channel, dropout=dropout_pool)
+        self.conv3 = GCNConv(hid_channel, hid_channel)
+
+        self.fc2 = torch.nn.Linear(hid_channel, self.num_classes)
+
+    def forward(self, data):
+        batch = data[3]
+        data = Data(x=data[0], edge_index=data[1].t().contiguous())
+
+        x, edge_index = data.x, data.edge_index
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
+
+        x = self.conv3(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+
+        if self.task_type_node: #Dealing with node classification
+            #x, edge_index, batch = self.pool2.unpool(x, unpool2)
+            x, edge_index, batch = self.pool1.unpool(x, unpool1)
+        else: #dealing with graph classification
+            x = global_mean_pool(x, batch)
+            #Try global sum pool
+            #Maybe try global max pool maar dat verpest misschien de gradients
+
+        x = self.fc2(x)
+        
+        x = torch.sigmoid(x)
+        if self.num_classes == 1: #binary
+            return torch.flatten(x)
+        else:
+            return x
+        
+
 class GraphConvPoolNN(torch.nn.Module):
     archName = "GCN Pooling"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, hid_channel, device):
         super().__init__()
-        self.n_epochs = 2
+        self.n_epochs = 200
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = PoolLayer
@@ -39,8 +98,8 @@ class GraphConvPoolNN(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout)
 
         self.conv1 = GCNConv(node_features, hid_channel)
-        #self.batchnorm1 = BatchNorm(hid_channel)
-        #self.conv2 = GCNConv(hid_channel, hid_channel)
+        self.batchnorm1 = BatchNorm(hid_channel)
+        self.conv2 = GCNConv(hid_channel, hid_channel)
         #self.batchnorm2 = BatchNorm(hid_channel)
 
         self.pool1 = PoolLayer(hid_channel, dropout=dropout_pool)
@@ -50,11 +109,11 @@ class GraphConvPoolNN(torch.nn.Module):
         #self.conv4 = GCNConv(hid_channel, hid_channel)
         #self.batchnorm4 = BatchNorm(hid_channel)
 
-        #self.pool2 = PoolLayer(hid_channel, dropout=dropout_pool)
-        #self.conv5 = GCNConv(hid_channel, hid_channel)
+        self.pool2 = PoolLayer(hid_channel, dropout=dropout_pool)
+        self.conv5 = GCNConv(hid_channel, hid_channel)
         #self.batchnorm5 = BatchNorm(hid_channel)
 
-        #self.fc1 = torch.nn.Linear(hid_channel, hid_channel)
+        self.fc1 = torch.nn.Linear(hid_channel, hid_channel)
         #self.batchnorm6 = BatchNorm(hid_channel)
         self.fc2 = torch.nn.Linear(hid_channel, self.num_classes)
 
@@ -68,13 +127,13 @@ class GraphConvPoolNN(torch.nn.Module):
 
         
         x = self.conv1(x, edge_index)
-        #x = self.batchnorm1(x)
+        x = self.batchnorm1(x)
         x = F.relu(x)
         x = self.dropout(x)
 
-        #x = self.conv2(x, edge_index)
+        x = self.conv2(x, edge_index)
         #x = self.batchnorm2(x)
-        #x = F.relu(x)
+        x = F.relu(x)
         #x = self.dropout(x)
 
         x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
@@ -89,24 +148,24 @@ class GraphConvPoolNN(torch.nn.Module):
         #x = F.relu(x)
         #x = self.dropout(x)
 
-        #x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
+        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
 
-        #x = self.conv5(x, edge_index)
+        x = self.conv5(x, edge_index)
         #x = self.batchnorm5(x)
-        #x = F.relu(x)
+        x = F.relu(x)
         #x = self.dropout(x)
 
         if self.task_type_node: #Dealing with node classification
-            #x, edge_index, batch = self.pool2.unpool(x, unpool2)
+            x, edge_index, batch = self.pool2.unpool(x, unpool2)
             x, edge_index, batch = self.pool1.unpool(x, unpool1)
         else: #dealing with graph classification
             x = global_mean_pool(x, batch)
             #Try global sum pool
             #Maybe try global max pool maar dat verpest misschien de gradients
 
-        #x = self.fc1(x)
+        x = self.fc1(x)
         #x = self.batchnorm6(x)
-        #x = F.relu(x)
+        x = F.relu(x)
         #x = self.dropout(x)
         x = self.fc2(x)
         
@@ -115,6 +174,7 @@ class GraphConvPoolNN(torch.nn.Module):
             return torch.flatten(x)
         else:
             return x
+
 
 
 class GUNET(torch.nn.Module):
@@ -220,8 +280,14 @@ class GCNModel(ModelInterface):
         if hasattr(self.clf, "optimizer"):
             optimizer = self.clf.optimizer
         else:
-            optimizer = torch.optim.Adam(self.clf.parameters(), lr=0.0005)
-            #optimizer = torch.optim.Adam(self.clf.parameters(), lr=0.00025, weight_decay=1e-4)
+            if hasattr(self.clf, "learningrate"):
+                print("Model has its own learning rate")
+                lr = self.clf.learningrate
+            else:
+                lr = 0.00005
+            # PROTEIN
+            #optimizer = torch.optim.Adam(self.clf.parameters(), lr=0.0005)
+            optimizer = torch.optim.Adam(self.clf.parameters(), lr=lr)
 
         self.clf.train()
         if self.bnry:
@@ -236,7 +302,7 @@ class GCNModel(ModelInterface):
 
         batch_size = 128
         best_mod = copy.deepcopy(self.clf.state_dict())
-        if verbose: print(f"Running training procedure for {self.clf.n_epochs} epochs...")
+        if verbose or True: print(f"\nRunning training procedure for {self.clf.n_epochs} epochs...")
         for epoch in range(self.clf.n_epochs + 1):
             tot_lss = 0.0   
             
@@ -332,8 +398,8 @@ class GCNModel(ModelInterface):
                     if not ((prec+rec) == 0).any(): #Can we calculate the best threshold?
                         self.threshold = threshold[np.argmax(f1s)] #Set the threshhold to the most optimal one"""
                     
-                if verbose: print(f"\t\t\tValidation Loss in Epoch {epoch}: {val_loss:.4f}")
-                if verbose: print(f"\t\t\tValidation Accuracy in Epoch {epoch}: {valid_metric:.4f}")
+                if verbose or True: print(f"\t\t\tValidation Loss in Epoch {epoch}: {val_loss:.4f}")
+                if verbose or True: print(f"\t\t\tValidation Accuracy in Epoch {epoch}: {valid_metric:.4f}")
                 #print(f"\t\tValid {self.MetricName}: {valid_f1:.4f} (Best: {np.max(vmetric_list):.4f}, Thresh: {self.threshold:.4f})")
 
 

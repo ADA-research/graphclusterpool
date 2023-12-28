@@ -182,7 +182,7 @@ class ClusterPooling(torch.nn.Module):
     
     """ New merge function for combining the nodes """
     def __merge_edges__(self, x, edge_index, batch, edge_score):
-        fcluster = torch.empty_like(batch, device=torch.device('cpu'))
+        cluster = torch.empty_like(batch, device=torch.device('cpu'))
 
         #We don't deal with double edged node pairs e.g. [a,b] and [b,a] in edge_index
         
@@ -195,15 +195,15 @@ class ClusterPooling(torch.nn.Module):
         sel_edge = edge_mask.nonzero().flatten()        
         new_edge = torch.index_select(edge_index, dim=1, index=sel_edge).to(x.device)
         
-        #components = calculate_components(x.size(0), new_edge) #47.3% of time
-        components = None
-        cluster, i = calculate_components_torch(x.size(0), new_edge) #
+        components = calculate_components(x.size(0), new_edge) #47.3% of time
+        #components = None
+        #cluster, i = calculate_components_torch(x.size(0), new_edge) #
         #print(cluster)
         # Unpack the components into a cluster index for each node
-        #i = 0
-        #for c in components: #15% of time
-        #    cluster[c] = i
-        #    i += 1
+        i = 0
+        for c in components: #15% of time
+            cluster[c] = i
+            i += 1
 
         cluster = cluster.to(x.device)
         new_edge = new_edge.to(x.device)
