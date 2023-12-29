@@ -3,6 +3,7 @@ import random
 import torch
 import pickle
 from datetime import datetime
+import os
 
 import numpy as np
 import math
@@ -27,18 +28,10 @@ class ModelInterface:
         self.labels = labels
         self.n_labels = len(labels)
         self.bnry = (self.n_labels == 2)
-        """if not self.bnry:
-            for i,e in enumerate(self.data):
-                if e[2].max() > 1:
-                    self.data[i][2] = torch.nn.functional.one_hot(e[2], self.n_labels)
-            for i,e in enumerate(self.test):
-                if e[2].max() > 1:
-                    self.test[i][2] = torch.nn.functional.one_hot(e[2], self.n_labels)"""
         self.MetricName = "F1-Score" if self.bnry else "Accuracy"
         
-        #PROTEIN
-        #self.hid_channel = 32
-        self.hid_channel = 64
+        #self.hid_channel = 32 #PROTEIN
+        self.hid_channel = 16
         
         self.clf = None
         self.clfName = "ModelInterface"
@@ -181,7 +174,7 @@ class ModelInterface:
         validation_loss_f = []
         models = []
 
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp = datetime.now().strftime('%Y-%m-%d %H.%M.%S')
 
         if not kCross:
             self.generate_train_validation(validation=True)
@@ -240,14 +233,14 @@ class ModelInterface:
         
         #Save data
         resdict = {
-            "description": [self.clfName, str(self.clf.poolLayer)],
+            "description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.hid_channel}"],
             "train_loss_folds": train_loss_f,
             "train_acc_folds": train_acc_f,
             "validation_loss_folds": validation_loss_f,
             "validation_acc_folds": validation_acc_f,
             "models": models
         }
-
+        os.mkdir(f"results/{timestamp}")
         with open(f"results/{timestamp}/result_dictionary.pickle", 'wb') as handle:
             pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 

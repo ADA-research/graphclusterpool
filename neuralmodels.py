@@ -19,7 +19,9 @@ from torch_geometric.data import Data
 
 from ModelInterface import ModelInterface
 
-"""Architecture for protein:"""
+"""Architecture for protein:
+* 32 width
+"""
 class GraphConvPoolNNProtein(torch.nn.Module):
     archName = "GCN Pooling arch for Protein"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, hid_channel, device):
@@ -98,7 +100,7 @@ class GraphConvPoolNN(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout)
 
         self.conv1 = GCNConv(node_features, hid_channel)
-        self.batchnorm1 = BatchNorm(hid_channel)
+        #self.batchnorm1 = BatchNorm(hid_channel)
         self.conv2 = GCNConv(hid_channel, hid_channel)
         #self.batchnorm2 = BatchNorm(hid_channel)
 
@@ -106,7 +108,7 @@ class GraphConvPoolNN(torch.nn.Module):
         self.conv3 = GCNConv(hid_channel, hid_channel)
         #self.batchnorm3 = BatchNorm(hid_channel)
 
-        #self.conv4 = GCNConv(hid_channel, hid_channel)
+        self.conv4 = GCNConv(hid_channel, hid_channel)
         #self.batchnorm4 = BatchNorm(hid_channel)
 
         self.pool2 = PoolLayer(hid_channel, dropout=dropout_pool)
@@ -127,14 +129,14 @@ class GraphConvPoolNN(torch.nn.Module):
 
         
         x = self.conv1(x, edge_index)
-        x = self.batchnorm1(x)
+        #x = self.batchnorm1(x)
         x = F.relu(x)
         x = self.dropout(x)
 
         x = self.conv2(x, edge_index)
         #x = self.batchnorm2(x)
         x = F.relu(x)
-        #x = self.dropout(x)
+        x = self.dropout(x)
 
         x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
 
@@ -143,20 +145,20 @@ class GraphConvPoolNN(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-        #x = self.conv4(x, edge_index)
+        x = self.conv4(x, edge_index)
         #x = self.batchnorm4(x)
-        #x = F.relu(x)
-        #x = self.dropout(x)
+        x = F.relu(x)
+        x = self.dropout(x)
 
         x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
 
         x = self.conv5(x, edge_index)
         #x = self.batchnorm5(x)
         x = F.relu(x)
-        #x = self.dropout(x)
+        x = self.dropout(x)
 
         if self.task_type_node: #Dealing with node classification
-            x, edge_index, batch = self.pool2.unpool(x, unpool2)
+            #x, edge_index, batch = self.pool2.unpool(x, unpool2)
             x, edge_index, batch = self.pool1.unpool(x, unpool1)
         else: #dealing with graph classification
             x = global_mean_pool(x, batch)
@@ -166,7 +168,7 @@ class GraphConvPoolNN(torch.nn.Module):
         x = self.fc1(x)
         #x = self.batchnorm6(x)
         x = F.relu(x)
-        #x = self.dropout(x)
+        x = self.dropout(x)
         x = self.fc2(x)
         
         x = torch.sigmoid(x)
@@ -284,7 +286,7 @@ class GCNModel(ModelInterface):
                 print("Model has its own learning rate")
                 lr = self.clf.learningrate
             else:
-                lr = 0.00005
+                lr = 0.001
             # PROTEIN
             #optimizer = torch.optim.Adam(self.clf.parameters(), lr=0.0005)
             optimizer = torch.optim.Adam(self.clf.parameters(), lr=lr)
@@ -300,7 +302,7 @@ class GCNModel(ModelInterface):
         vloss = []
         vmetric_list = []
 
-        batch_size = 128
+        batch_size = 1
         best_mod = copy.deepcopy(self.clf.state_dict())
         if verbose or True: print(f"\nRunning training procedure for {self.clf.n_epochs} epochs...")
         for epoch in range(self.clf.n_epochs + 1):
@@ -336,17 +338,9 @@ class GCNModel(ModelInterface):
 
                 loss.backward()              
                 optimizer.step()
-            tot_lss = tot_lss / len(listindex)
-            # From Diehl paper
-            #if epoch > 0 and epoch % 50 == 0:
-            #    for g in optimizer.param_groups:
-            #        g['lr'] = g['lr'] / 2
 
-            #prec, rec, threshold =  sklearn.metrics.precision_recall_curve(self.y_train, y_train_probs)
-            #f1s = (2*(prec * rec)) / ((prec + rec) + 1e-10)
-            #self.threshold = threshold[np.argmax(f1s)]
-            
-            #y_train_labels = (y_train_probs > self.threshold).astype(int)
+            tot_lss = tot_lss / len(listindex)
+
             if not self.bnry:
                 y_train_labels = np.argmax(y_train_probs, axis=1)
             else:
@@ -355,11 +349,15 @@ class GCNModel(ModelInterface):
             metric_list.append(train_metric)
             
             tloss.append(tot_lss)
-            #print("\t\t\t Label balance:", np.count_nonzero(y_train_labels == 0), np.count_nonzero(y_train_labels == 1))
-            #print("\t\t\t Actual balance:", np.count_nonzero(np.array(self.y_train) == 0), np.count_nonzero(np.array(self.y_train) == 1))
-            #input()
             if verbose or True:
                 print(f"\t\tEpoch {epoch} Train Accuracy: {metric_list[-1]:.4f} --- Train Loss: {tot_lss:.4f}")#--- Threshold: {self.threshold}")
+
+            # From Diehl paper
+            if epoch > 0 and epoch % 50 == 0:
+                for g in optimizer.param_groups:
+                    if verbose or True: print(f"\n\t\t[INFO] Shrinking Learning Rate from {g['lr']} to {g['lr'] / 2}\n")
+                    g['lr'] = g['lr'] / 2
+
             if True:
             #if epoch % 10 == 0 and epoch > 0:
                 self.clf.train(mode=False)
@@ -386,25 +384,10 @@ class GCNModel(ModelInterface):
                 vmetric_list.append(valid_metric)
                 if valid_metric >= np.max(vmetric_list): #Best validation score thusfar
                     best_mod = copy.deepcopy(self.clf.state_dict())
-                #else:
-                #    self.clf.load_state_dict(best_mod)
-                """prec, rec, threshold =  sklearn.metrics.precision_recall_curve(self.y_valid, self.y_valid_dist)
-                if not ((prec+rec) == 0).any():
-                    f1s = (2*(prec * rec)) / (prec + rec)
-                    valid_f1 = np.max(f1s)
-                vmetric_list.append(valid_f1)
-                if valid_f1 >= np.max(vmetric_list): #Best validation score thusfar
-                    best_mod = copy.deepcopy(self.clf.state_dict())
-                    if not ((prec+rec) == 0).any(): #Can we calculate the best threshold?
-                        self.threshold = threshold[np.argmax(f1s)] #Set the threshhold to the most optimal one"""
                     
-                if verbose or True: print(f"\t\t\tValidation Loss in Epoch {epoch}: {val_loss:.4f}")
-                if verbose or True: print(f"\t\t\tValidation Accuracy in Epoch {epoch}: {valid_metric:.4f}")
-                #print(f"\t\tValid {self.MetricName}: {valid_f1:.4f} (Best: {np.max(vmetric_list):.4f}, Thresh: {self.threshold:.4f})")
-
-
-            #print(f"\t\tEpoch {epoch} Train {self.MetricName}: {train_f1:.4f}, Best: {np.max(metric_list):.4f}")
-            #print(f"\t\tEpoch {epoch} Train {self.MetricName}: {np.max(metric_list):.4f}")
+                if verbose or True: print(f"\t\t\tValidation result: {valid_metric:.4f} [Accuracy] --- {val_loss:.4f} [Loss] ")
+               
+        #print(f"\Best Train stats: Accuracy {np.min()}")
             
         self.clf.load_state_dict(best_mod)
         self.clf.train(mode=False)
