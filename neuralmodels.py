@@ -158,7 +158,7 @@ class GraphConvPoolNN(torch.nn.Module):
         x = self.dropout(x)
 
         if self.task_type_node: #Dealing with node classification
-            #x, edge_index, batch = self.pool2.unpool(x, unpool2)
+            x, edge_index, batch = self.pool2.unpool(x, unpool2)
             x, edge_index, batch = self.pool1.unpool(x, unpool1)
         else: #dealing with graph classification
             x = global_mean_pool(x, batch)
