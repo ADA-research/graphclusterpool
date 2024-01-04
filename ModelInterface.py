@@ -114,7 +114,8 @@ class ModelInterface:
         for data in self.valid: #For every graph in the data set
             out = self.clf(data) #Get the labels from all the nodes in one graph 
 
-            if type(out) == tuple: out = out[0]
+            if type(out) == tuple:
+                out = out[0]
 
             labels = ((out > self.threshold).int()).cpu().detach().numpy()
 

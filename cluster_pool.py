@@ -7,7 +7,7 @@ from torch_scatter import scatter_add
 from torch_sparse import coalesce
 from torch_geometric.utils import softmax
 
-from line_profiler import LineProfiler
+#from line_profiler import LineProfiler
 
 def calculate_components(n_nodes: int, edges: torch.tensor):
         # From https://stackoverflow.com/questions/10301000/python-connected-components

@@ -1,7 +1,5 @@
 import numpy as np
-import math
 import copy
-import time
 import itertools
 
 import sklearn
@@ -9,9 +7,9 @@ import sklearn
 import torch
 import torch.nn.functional as F
 #from torch.nn import BatchNorm2d
-from torch_geometric.nn.norm import BatchNorm
+#from torch_geometric.nn.norm import BatchNorm
 from torch_geometric.nn import GCNConv
-from torch_geometric.nn.pool import EdgePooling
+#from torch_geometric.nn.pool import EdgePooling
 from torch_geometric.nn import global_mean_pool
 from cluster_pool import ClusterPooling
 
@@ -313,7 +311,8 @@ class GUNET(torch.nn.Module):
         unpool_infos = []
         for i in range(self.depth):
             x = self.down_convs[i](x, edge_index)
-            if self.training: x = self.dropout(x)
+            if self.training:
+                x = self.dropout(x)
             x = F.relu(x)
             memory.append(x.clone())
             x, edge_index, batch, unpool = self.pools[i](x, edge_index.long(), batch)
@@ -327,7 +326,8 @@ class GUNET(torch.nn.Module):
             x, edge_index, batch = self.pools[j].unpool(x, unpool_infos.pop())
             x = torch.cat((memory.pop(), x), -1)
             x = self.up_convs[i](x, edge_index)
-            if self.training and i < self.depth - 1: x = self.dropout(x)
+            if self.training and i < self.depth - 1:
+                x = self.dropout(x)
             x = F.relu(x) if i < self.depth - 1 else x
                     
         return torch.sigmoid(x).flatten()
@@ -377,7 +377,8 @@ class GCNModel(ModelInterface):
 
         batch_size = 1
         best_mod = copy.deepcopy(self.clf.state_dict())
-        if verbose or True: print(f"\n\tRunning training procedure for {self.clf.n_epochs} epochs...")
+        if verbose or True:
+            print(f"\n\tRunning training procedure for {self.clf.n_epochs} epochs...")
         for epoch in range(self.clf.n_epochs + 1):
             tot_lss = 0.0   
             
@@ -448,7 +449,8 @@ class GCNModel(ModelInterface):
                     if not self.bnry:
                         val_lab = torch.nn.functional.one_hot(val_lab, self.n_labels)
                     val_loss += loss_func(out, val_lab.float())
-                    if type(out) == tuple: out = out[0]
+                    if type(out) == tuple:
+                        out = out[0]
                     
                     if not self.bnry:
                         out = out.argmax(dim=1)
@@ -462,7 +464,8 @@ class GCNModel(ModelInterface):
                 if valid_metric >= np.max(vmetric_list): #Best validation score thusfar
                     best_mod = copy.deepcopy(self.clf.state_dict())
                     
-                if verbose or True: print(f"\t\t\tValidation result: {valid_metric:.4f} [Accuracy] --- {val_loss:.4f} [Loss] ")
+                if verbose or True:
+                    print(f"\t\t\tValidation result: {valid_metric:.4f} [Accuracy] --- {val_loss:.4f} [Loss] ")
             
         self.clf.load_state_dict(best_mod)
         self.clf.train(mode=False)
