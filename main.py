@@ -2,7 +2,6 @@ import argparse
 from ModelInterface import ModelInterface
 import neuralmodels as nm
 import pickle
-import torch
 from torch_geometric.nn.pool import EdgePooling
 from cluster_pool import ClusterPooling
 

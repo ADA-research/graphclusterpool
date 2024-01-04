@@ -4,6 +4,7 @@ import torch
 import pickle
 from datetime import datetime
 import os
+import sys
 
 import numpy as np
 import math
@@ -30,8 +31,6 @@ class ModelInterface:
         self.bnry = (self.n_labels == 2)
         self.MetricName = "F1-Score" if self.bnry else "Accuracy"
         
-        #self.hid_channel = 32 #PROTEIN
-        self.hid_channel = 16
         
         self.clf = None
         self.clfName = "ModelInterface"
@@ -71,11 +70,6 @@ class ModelInterface:
         "Creates a train/validation/test split based on the number of folds. Returns the number of folds possible."       
         self.cross_test_size = math.ceil(len(self.data)/ folds)
         return math.ceil(len(self.data) / self.cross_test_size)
-
-    #Gets the PR_AUC over the current test set
-    #def get_pr_auc(self):
-    #    prec, rec, _ =  metrics.precision_recall_curve(self.y_test, self.y_test_pred)
-    #    return metrics.auc(rec, prec)
 
     "Finishes data set formatting after generating train/test sets. Overwrite if no Tensors are used."
     def format_data_values(self, validation=False):
@@ -165,16 +159,43 @@ class ModelInterface:
     "(Boolean) kCross: Use k-fold-cross-validation"
     "(Boolean) display: Print statistics"
     "(Boolean) record_roc: Save and return test probabilities and values for ROC curve"
-    def run_folds(self, folds, kCross=True, display=True, validation=True):
-        "Function that runs train and test for new models"
-        
+    def run_folds(self, folds, kCross=True, display=True, validation=True, contExperiment=None):
+        "Function that runs train and test for models"
         train_acc_f = []
         train_loss_f = []
         validation_acc_f = []
         validation_loss_f = []
         models = []
-
+        start_fold = 0
         timestamp = datetime.now().strftime('%Y-%m-%d %H.%M.%S')
+        dirname = f"results/{self.clfName} {timestamp}"
+        filepath = f"{dirname}/result_dictionary.pkl"
+
+        if contExperiment is str:
+            print(f"Continuing experiment from {contExperiment}."
+                  "\nWARNING: Any change to the architecture or Hyperparameters will render this experiment useless.")
+            dirname = contExperiment
+            filepath = contExperiment
+            if dirname.endswith(".pkl"):
+                dirname = "/".join(dirname.split("/")[:-1])
+            else:
+                filepath += "/".join(dirname.split("/")) + "result_dictionary.pkl"
+            
+            if not os.path.isfile(filepath):
+                print(f"Incorrect file for continuation: {filepath}")
+                sys.exit(-1)
+            
+            data = None
+            with open(filepath, 'rb') as pkl:
+                data = pickle.load(pkl)
+
+            # clfName, poolLayer, widthString = data["description"][0], data["description"][1], data["description"][2]
+            train_loss_f, train_acc_f = data["train_loss_folds"], data["train_acc_folds"]
+            validation_loss_f, validation_acc_f = data["validation_loss_folds"], data["validation_acc_folds"]
+            start_fold = len(train_loss_f)
+            timestamp = None
+        else:
+            os.mkdir(dirname)
 
         if not kCross:
             self.generate_train_validation(validation=True)
@@ -184,9 +205,9 @@ class ModelInterface:
             folds = self.generate_k_fold(folds)
 
         if display:
-            print("\nRunning " + str(folds) + " folds with " + str(self.clfName) + ":")
+            print("\nRunning " + str(folds-start_fold) + " folds with " + str(self.clfName) + ":")
         
-        for i in range(folds):
+        for i in range(start_fold, folds):
             if display:
                 start_time = time.time()
                 print("\tFold " + str(i+1) + "/" + str(folds) + "...", end='')
@@ -211,11 +232,23 @@ class ModelInterface:
             validation_loss_f.append(v_loss)
             models.append(model)
 
+            #Save data
+            resdict = {
+                "description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}"],
+                "train_loss_folds": train_loss_f,
+                "train_acc_folds": train_acc_f,
+                "validation_loss_folds": validation_loss_f,
+                "validation_acc_folds": validation_acc_f,
+                "models": models
+            }
+            with open(filepath, 'wb') as handle:
+                pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
             if display:
                 elapsed_time = time.time() - start_time
                 elapsed_minutes = int( elapsed_time / 60.0 )
                 elapsed_seconds = elapsed_time % 60   
-                print(f"({elapsed_minutes} m {elapsed_seconds} s)")
+                print(f"\t\t Fold {i} completed. ({elapsed_minutes} m {elapsed_seconds} s)")
                 
                 mtacc = np.max(t_acc)
                 mvacc = np.max(v_acc)
@@ -231,18 +264,7 @@ class ModelInterface:
             sns.lineplot(mean, ax=ax, color=color)
             ax.fill_between([x for x in range(len(lower_bound) )], lower_bound, upper_bound, color=color, alpha=.3)
         
-        #Save data
-        resdict = {
-            "description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.hid_channel}"],
-            "train_loss_folds": train_loss_f,
-            "train_acc_folds": train_acc_f,
-            "validation_loss_folds": validation_loss_f,
-            "validation_acc_folds": validation_acc_f,
-            "models": models
-        }
-        os.mkdir(f"results/{timestamp}")
-        with open(f"results/{timestamp}/result_dictionary.pickle", 'wb') as handle:
-            pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        
 
         if display:
             sns.set()
