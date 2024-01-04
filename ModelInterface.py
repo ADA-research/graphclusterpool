@@ -190,6 +190,7 @@ class ModelInterface:
                 data = pickle.load(pkl)
 
             # clfName, poolLayer, widthString = data["description"][0], data["description"][1], data["description"][2]
+            folds = data["description"][3]
             train_loss_f, train_acc_f = data["train_loss_folds"], data["train_acc_folds"]
             validation_loss_f, validation_acc_f = data["validation_loss_folds"], data["validation_acc_folds"]
             start_fold = len(train_loss_f)
@@ -234,7 +235,7 @@ class ModelInterface:
 
             #Save data
             resdict = {
-                "description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}"],
+                "description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}", folds],
                 "train_loss_folds": train_loss_f,
                 "train_acc_folds": train_acc_f,
                 "validation_loss_folds": validation_loss_f,

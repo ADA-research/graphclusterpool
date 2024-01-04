@@ -5,6 +5,7 @@ import pickle
 import sys
 import os
 
+
 if len(sys.argv) != 2:
     print("Arguments not recognized: ", sys.argv)
     print("Please only supply path to dictionary with experiment results.")
