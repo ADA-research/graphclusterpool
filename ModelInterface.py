@@ -40,7 +40,7 @@ class ModelInterface:
 
         self.maxSeed = 4294967295 #Maximum value in 32 bits
         self.randomSeed = random.randint(0, self.maxSeed)
-        random.Random(self.randomSeed).shuffle(self.data)
+        
         
         self.threshold = 0.5 #Standard threshold for binary classifications
 
@@ -48,31 +48,26 @@ class ModelInterface:
         self.train = []
         self.valid = []
 
-        self.generate_train_validation(validation=True)
-
     def generate_train_validation(self, split=0.89, validation=False):
-        "Creates a train/validation/test split from the internal data object"
-
+        "Creates a random train/validation/test split from the internal data object"
+        random.Random(self.randomSeed).shuffle(self.data)
         train_index = int(len(self.data) * split)
         self.train = self.data[:train_index]
         if validation:
-            #size = (1 - split) / 2
-            #valid_index = int(len(self.data) * (split + size))
             self.valid = self.data[train_index:]
-            
         else:
             self.train = self.data
 
         #If the presented data needs some modification, the following function can be overwritten
-        self.format_data_values(validation=validation)
+        self.format_data_values()
 
-    def generate_k_fold(self, folds):
+    def split_k_fold(self, folds):
         "Creates a train/validation/test split based on the number of folds. Returns the number of folds possible."       
         self.cross_test_size = math.ceil(len(self.data)/ folds)
         return math.ceil(len(self.data) / self.cross_test_size)
 
     "Finishes data set formatting after generating train/test sets. Overwrite if no Tensors are used."
-    def format_data_values(self, validation=False):
+    def format_data_values(self):
         "Send the tensors to the correct device"
         for i in range(len(self.train)):
             self.train[i][0] = self.train[i][0].to(self.device) #Send nodes
@@ -107,7 +102,7 @@ class ModelInterface:
         pass
 
     def validate_model(self):
-        
+        "Function to validate a model on the validation set"
         self.y_valid_pred = []
         self.y_valid_dist = []
         
@@ -192,6 +187,11 @@ class ModelInterface:
 
             # clfName, poolLayer, widthString = data["description"][0], data["description"][1], data["description"][2]
             folds = data["description"][3]
+            kCross = data["description"][4]
+            if kCross:
+                # For kCross we must reuse the same random seed to continue the folds
+                self.randomSeed = data["description"][5]
+                random.Random(self.randomSeed).shuffle(self.data)
             train_loss_f, train_acc_f = data["train_loss_folds"], data["train_acc_folds"]
             validation_loss_f, validation_acc_f = data["validation_loss_folds"], data["validation_acc_folds"]
             start_fold = len(train_loss_f)
@@ -200,11 +200,11 @@ class ModelInterface:
             os.mkdir(dirname)
 
         if not kCross:
-            self.generate_train_validation(validation=True)
+            self.generate_train_validation(validation=validation)
         elif self.cross_test_size <= 0: #Have to create a cross validation
             if folds > len(self.data):
                 folds = len(self.data)
-            folds = self.generate_k_fold(folds)
+            folds = self.split_k_fold(folds)
 
         if display:
             print("\nRunning " + str(folds-start_fold) + " folds with " + str(self.clfName) + ":")
@@ -224,7 +224,7 @@ class ModelInterface:
                 if len(self.train) == 0:
                     self.train = self.data[tindex:tend]
                     self.valid = []
-                self.format_data_values(validation=True)
+                self.format_data_values()
 
             t_acc, t_loss, v_acc, v_loss, model = self.train_model(verbose=False)
 
@@ -236,7 +236,7 @@ class ModelInterface:
 
             #Save data
             resdict = {
-                "description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}", folds],
+                "description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}", folds, kCross, self.randomSeed],
                 "train_loss_folds": train_loss_f,
                 "train_acc_folds": train_acc_f,
                 "validation_loss_folds": validation_loss_f,

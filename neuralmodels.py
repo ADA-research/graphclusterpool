@@ -176,7 +176,7 @@ class GraphConvPoolNN(torch.nn.Module):
         self.device = device
         self.poolLayer = PoolLayer
         self.hid_channel = 32
-        self.learningrate = 0.0005
+        self.learningrate = 0.00025
         
         if self.num_classes == 2: #binary
             self.num_classes = 1
@@ -191,10 +191,10 @@ class GraphConvPoolNN(torch.nn.Module):
         self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
-        self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
-        self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
 
-        self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        #self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
@@ -216,7 +216,7 @@ class GraphConvPoolNN(torch.nn.Module):
 
         x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
 
-        x = self.conv3(x, edge_index)
+        """x = self.conv3(x, edge_index)
         x = F.relu(x)
         x = self.dropout(x)
 
@@ -224,7 +224,7 @@ class GraphConvPoolNN(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
+        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)"""
 
         x = self.conv5(x, edge_index)
         x = F.relu(x)
