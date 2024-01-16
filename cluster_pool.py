@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch_sparse import coalesce
 from torch_geometric.utils import softmax
 
+
 #from line_profiler import LineProfiler
 # Refine/simplify this code to specific needs so we no longer need torch_scatter
 # Also look into removing dependency on torch_sparse coalesce?

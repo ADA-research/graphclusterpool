@@ -5,6 +5,7 @@ import pickle
 from datetime import datetime
 import os
 import sys
+from pathlib import Path
 
 import numpy as np
 import math
@@ -197,7 +198,7 @@ class ModelInterface:
             start_fold = len(train_loss_f)
             timestamp = None
         else:
-            os.mkdir(dirname)
+            Path(dirname).mkdir(parents=True)
 
         if not kCross:
             self.generate_train_validation(validation=validation)
