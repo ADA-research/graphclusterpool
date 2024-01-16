@@ -30,6 +30,7 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         self.device = device
         self.poolLayer = PoolLayer
         self.hid_channel = 32
+        self.batch_size = 16
         self.learningrate = 0.0005
         
         if self.num_classes == 2: #binary
@@ -93,6 +94,7 @@ class GraphConvPoolNNRedditBinary(torch.nn.Module):
         self.device = device
         self.poolLayer = PoolLayer
         self.hid_channel = 64
+        self.batch_size = 1
         self.learningrate = 0.001
         
         if self.num_classes == 2: #binary
@@ -171,11 +173,12 @@ class GraphConvPoolNN(torch.nn.Module):
     archName = "GCN Pooling"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
         super().__init__()
-        self.n_epochs = 1000
+        self.n_epochs = 500
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = PoolLayer
-        self.hid_channel = 32
+        self.hid_channel = 128
+        self.batch_size = 1
         self.learningrate = 0.00025
         
         if self.num_classes == 2: #binary
@@ -183,7 +186,7 @@ class GraphConvPoolNN(torch.nn.Module):
 
         self.task_type_node = task_type_node
 
-        dropout=0.0
+        dropout=0.05
         dropout_pool=0.0
         self.dropout = torch.nn.Dropout(p=dropout)
 
@@ -191,11 +194,11 @@ class GraphConvPoolNN(torch.nn.Module):
         self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
-        #self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
-        #self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
+        self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
+        self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
 
         #self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
-        self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
@@ -216,7 +219,7 @@ class GraphConvPoolNN(torch.nn.Module):
 
         x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
 
-        """x = self.conv3(x, edge_index)
+        x = self.conv3(x, edge_index)
         x = F.relu(x)
         x = self.dropout(x)
 
@@ -224,11 +227,11 @@ class GraphConvPoolNN(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)"""
+        """x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
 
         x = self.conv5(x, edge_index)
         x = F.relu(x)
-        x = self.dropout(x)
+        x = self.dropout(x)"""
 
         if self.task_type_node: #Dealing with node classification
             x, edge_index, batch = self.pool2.unpool(x, unpool2)
@@ -376,10 +379,10 @@ class GCNModel(ModelInterface):
         vmetric_list = []
 
         batch_size = 1
+        if hasattr(self.clf, "batch_size"):
+            batch_size = self.clf.batch_size
         best_mod = copy.deepcopy(self.clf.state_dict())
-        if verbose or True:
-            print(f"\n\tRunning training procedure for {self.clf.n_epochs} epochs...")
-        for epoch in range(self.clf.n_epochs + 1):
+        for epoch in range(1, self.clf.n_epochs + 1):
             tot_lss = 0.0   
             
             y_train_probs = []
@@ -425,7 +428,7 @@ class GCNModel(ModelInterface):
             
             tloss.append(tot_lss)
             if verbose or True:
-                print(f"\t\tEpoch {epoch} Train Accuracy: {metric_list[-1]:.4f} --- Train Loss: {tot_lss:.4f}")#--- Threshold: {self.threshold}")
+                print(f"\t\tEpoch {epoch}/{self.clf.n_epochs}\t Train Accuracy: {metric_list[-1]:.4f} --- Train Loss: {tot_lss:.4f}")#--- Threshold: {self.threshold}")
             
             if tot_lss == 0.0:
                 break
@@ -436,7 +439,8 @@ class GCNModel(ModelInterface):
                     if verbose or True: print(f"\n\t\t[INFO] Shrinking Learning Rate from {g['lr']} to {g['lr'] / 2}\n")
                     g['lr'] = g['lr'] / 2"""
 
-            if epoch == self.clf.n_epochs:
+            if True:
+            #if epoch == self.clf.n_epochs:
             #if epoch % 10 == 0 and epoch > 0:
                 self.clf.train(mode=False)
                 val_loss = 0.0
