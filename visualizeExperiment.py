@@ -4,24 +4,26 @@ import numpy as np
 import pickle 
 import sys
 import os
-
+from pathlib import Path
 
 if len(sys.argv) != 2:
     print("Arguments not recognized: ", sys.argv)
     print("Please only supply path to dictionary with experiment results.")
     sys.exit(-1)
 
-filepath = sys.argv[1]
+filepath = Path(sys.argv[1])
 
-if not os.path.exists(filepath):
+if not filepath.exists():
     print("Invalid path: ", filepath)
     sys.exit(-1)
 
-if not os.path.isfile(filepath):
-    print("Path is not a file: ", filepath)
+if not filepath.is_file():
+    files = [x for x in os.listdir(filepath) if x.endswith(".pkl")]
+    filepath = filepath / files[0]
+    if not filepath.is_file():
+        print("Path is not a file: ", filepath)
 
 data = None
-
 with open(filepath, 'rb') as pkl:
     data = pickle.load(pkl)
 
@@ -71,4 +73,5 @@ plot_line_with_std(axes[0][1], vloss, np.std(validation_loss_f, axis=0), color="
 plot_line_with_std(axes[1][0], tacc, np.std(train_acc_f, axis=0), color="blue")
 plot_line_with_std(axes[1][1], vacc, np.std(validation_acc_f, axis=0), color="blue")
 
+plt.savefig(str(filepath) + ".png")
 plt.show()

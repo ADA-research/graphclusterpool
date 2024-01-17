@@ -170,14 +170,14 @@ class GraphConvPoolNNRedditBinary(torch.nn.Module):
             return x
 
 class GraphConvPoolNN(torch.nn.Module):
-    archName = "GCN Pooling"
+    archName = "GCN Pooling COLLAB"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
         super().__init__()
         self.n_epochs = 500
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = PoolLayer
-        self.hid_channel = 128
+        self.hid_channel = 64
         self.batch_size = 1
         self.learningrate = 0.00025
         
@@ -186,7 +186,7 @@ class GraphConvPoolNN(torch.nn.Module):
 
         self.task_type_node = task_type_node
 
-        dropout=0.05
+        dropout=0.0
         dropout_pool=0.0
         self.dropout = torch.nn.Dropout(p=dropout)
 
@@ -195,7 +195,7 @@ class GraphConvPoolNN(torch.nn.Module):
 
         self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
-        self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
 
         #self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
         #self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
@@ -223,9 +223,9 @@ class GraphConvPoolNN(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-        x = self.conv4(x, edge_index)
-        x = F.relu(x)
-        x = self.dropout(x)
+        #x = self.conv4(x, edge_index)
+        #x = F.relu(x)
+        #x = self.dropout(x)
 
         """x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
 
@@ -234,7 +234,7 @@ class GraphConvPoolNN(torch.nn.Module):
         x = self.dropout(x)"""
 
         if self.task_type_node: #Dealing with node classification
-            x, edge_index, batch = self.pool2.unpool(x, unpool2)
+            #x, edge_index, batch = self.pool2.unpool(x, unpool2)
             x, edge_index, batch = self.pool1.unpool(x, unpool1)
         else: #dealing with graph classification
             x = global_mean_pool(x, batch)
@@ -428,7 +428,7 @@ class GCNModel(ModelInterface):
             
             tloss.append(tot_lss)
             if verbose or True:
-                print(f"\t\tEpoch {epoch}/{self.clf.n_epochs}\t Train Accuracy: {metric_list[-1]:.4f} --- Train Loss: {tot_lss:.4f}")#--- Threshold: {self.threshold}")
+                print(f"\t\tEpoch {epoch}/{self.clf.n_epochs}\t Train Accuracy: {metric_list[-1]:.4f} --- Train Loss: {tot_lss:.4f}", flush=True)
             
             if tot_lss == 0.0:
                 break
@@ -469,7 +469,7 @@ class GCNModel(ModelInterface):
                     best_mod = copy.deepcopy(self.clf.state_dict())
                     
                 if verbose or True:
-                    print(f"\t\t\tValidation result: {valid_metric:.4f} [Accuracy] --- {val_loss:.4f} [Loss] ")
+                    print(f"\t\t\t\t\t\tValidation result: {valid_metric:.4f} [Accuracy] --- {val_loss:.4f} [Loss] ", flush=True)
             
         self.clf.load_state_dict(best_mod)
         self.clf.train(mode=False)

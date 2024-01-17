@@ -170,7 +170,7 @@ class ModelInterface:
 
         if contExperiment is str:
             print(f"Continuing experiment from {contExperiment}."
-                  "\nWARNING: Any change to the architecture or Hyperparameters will render this experiment useless.")
+                  "\nWARNING: Any change to the architecture or Hyperparameters will render this experiment useless.", flush=True)
             dirname = contExperiment
             filepath = contExperiment
             if dirname.endswith(".pkl"):
@@ -208,12 +208,12 @@ class ModelInterface:
             folds = self.split_k_fold(folds)
 
         if display:
-            print("\nRunning " + str(folds-start_fold) + " folds with " + str(self.clfName) + ":")
+            print("\nRunning " + str(folds-start_fold) + " folds with " + str(self.clfName) + ":", flush=True)
         
         for i in range(start_fold, folds):
             if display:
                 start_time = time.time()
-                print("\tFold " + str(i+1) + "/" + str(folds) + "...", end='')
+                print("\tFold " + str(i+1) + "/" + str(folds) + "...")
 
             if not kCross: #Generate new sets
                 self.generate_train_validation(validation=validation)
@@ -251,15 +251,15 @@ class ModelInterface:
                 elapsed_time = time.time() - start_time
                 elapsed_minutes = int( elapsed_time / 60.0 )
                 elapsed_seconds = elapsed_time % 60   
-                print(f"\t\t Fold {i} completed. ({elapsed_minutes} m {elapsed_seconds} s)")
+                print(f"\t\t Fold {i} completed. ({elapsed_minutes} m {elapsed_seconds} s)", flush=True)
                 
                 mtacc = np.max(t_acc)
                 mvacc = np.max(v_acc)
                 mtloss = np.min(t_loss)
                 mvloss = np.min(v_loss)
 
-                print(f"\t\t{mtacc:.4f} Best Train Accuracy, {mvacc:.4f} Best Validation Accuracy.")
-                print(f"\t\t{mtloss:.4f} Lowest Train Loss, {mvloss:.4f} Lowest Validation Loss")
+                print(f"\t\t{mtacc:.4f} Best Train Accuracy, {mvacc:.4f} Best Validation Accuracy.", flush=True)
+                print(f"\t\t{mtloss:.4f} Lowest Train Loss, {mvloss:.4f} Lowest Validation Loss", flush=True)
 
         def plot_line_with_std(ax, mean, std, color):
             lower_bound = [M_new - Sigma for M_new, Sigma in zip(mean, std)]
@@ -269,7 +269,7 @@ class ModelInterface:
         
         
 
-        if display:
+        """if display:
             sns.set()
             sns.set_style("darkgrid")
             fig, axes = plt.subplots(2, 2)
@@ -307,5 +307,5 @@ class ModelInterface:
             plot_line_with_std(axes[1][0], tacc, np.std(train_acc_f, axis=0), color="blue")
             plot_line_with_std(axes[1][1], vacc, np.std(validation_acc_f, axis=0), color="blue")
     
-            plt.show()
+            plt.show()"""
             
