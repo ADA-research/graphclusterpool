@@ -25,6 +25,7 @@ def build_model(parser: argparse) -> ModelInterface:
     labels = None
     type = nm.GraphConvPoolNN
     task_type_node = True
+
     if parser.dataset == "PROTEIN":
         type = nm.GraphConvPoolNNProtein
         with open("Datasets/PROTEINS/PROTEINS_full/PROTEINS.pkl", 'rb') as pkl:
@@ -62,7 +63,17 @@ def build_model(parser: argparse) -> ModelInterface:
                 print(f"ERROR NO NODE TASK FOR {parser.dataset}")
                 sys.exit(-1)
         test_set_ids = [12, 15, 17, 35, 43, 46, 49, 60, 75, 97, 105, 113, 120, 124, 130, 134, 139, 175, 178, 180, 181, 187, 192, 201, 204, 205, 209, 210, 224, 230, 231, 237, 242, 262, 273, 277, 281, 284, 285, 287, 295, 296, 299, 309, 310, 316, 337, 342, 357, 372, 417, 423, 432, 451, 457, 459, 469, 483, 493, 501, 515, 521, 532, 536, 537, 542, 557, 566, 600, 603, 622, 629, 631, 649, 654, 662, 667, 670, 672, 693, 695, 726, 728, 730, 734, 748, 769, 773, 810, 889, 894, 898, 908, 925, 932, 937, 966, 976, 981, 991, 1020, 1028, 1029, 1060, 1068, 1075, 1077, 1080, 1086, 1107, 1113, 1117, 1127, 1133, 1140, 1146, 1157, 1174, 1175, 1180, 1200, 1220, 1224, 1235, 1240, 1241, 1245, 1269, 1298, 1299, 1318, 1323, 1333, 1336, 1344, 1346, 1351, 1375, 1384, 1393, 1395, 1443, 1449, 1461, 1465, 1469, 1489, 1498, 1499, 1500, 1509, 1526, 1532, 1544, 1558, 1569, 1586, 1589, 1595, 1611, 1616, 1624, 1658, 1660, 1669, 1702, 1728, 1744, 1756, 1757, 1763, 1765, 1777, 1781, 1789, 1792, 1798, 1820, 1858, 1862, 1863, 1875, 1894, 1896, 1901, 1905, 1913, 1919, 1921, 1925, 1936, 1939, 1941, 1944, 1947, 1949, 1956, 1966, 1981, 1994]
-        
+    elif parser.dataset == "REDDIT-MULTI":
+        with open("Datasets/REDDIT-MULTI-12K/REDDIT-MULTI-12K.pkl", 'rb') as pkl:
+            prodict = pickle.load(pkl)
+            if args.task == "graph":
+                lbls = prodict["graph_label_tensor"]
+                data = [list(a) for a in zip(prodict["node_tensor_tuple"], prodict["edge_tensor_tuple"], lbls.tensor_split([i for i in range(1, lbls.size(0))]) )]
+                labels = prodict["graph_label_range"]
+            else:
+                print(f"ERROR NO NODE TASK FOR {parser.dataset}")
+                sys.exit(-1)
+        test_set_ids = []
         
     if parser.model.startswith("GCN"):
         type = nm.GraphConvPoolNN
@@ -90,4 +101,4 @@ if __name__ == "__main__":
     model = build_model(args)
     print("Model has been built", flush=True)
     display = args.nodisplay is None or not args.nodisplay
-    model.run_folds(folds=10, kCross=False, display=display)
+    model.run_folds(folds=1, kCross=False, display=display)

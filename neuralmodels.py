@@ -256,10 +256,10 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
 
 
 class GraphConvPoolNN(torch.nn.Module):
-    archName = "GCN Pooling COLLAB"
+    archName = "GCN REDDIT-MULTI"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
         super().__init__()
-        self.n_epochs = 500
+        self.n_epochs = 50
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = PoolLayer
