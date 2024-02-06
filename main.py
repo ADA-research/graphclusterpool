@@ -101,4 +101,4 @@ if __name__ == "__main__":
     model = build_model(args)
     print("Model has been built", flush=True)
     display = args.nodisplay is None or not args.nodisplay
-    model.run_folds(folds=1, kCross=False, display=display)
+    model.run_folds(folds=10, kCross=False, display=display)

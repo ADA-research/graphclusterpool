@@ -508,6 +508,7 @@ class GCNModel(ModelInterface):
                 # print("\t\t", np.unique(y_train_labels, return_counts=True), np.unique(self.y_train, return_counts=True))
             else:
                 y_train_labels = np.round(y_train_probs)
+            print("\t\t Labelling diversity:", np.unique(y_train_labels, return_counts=True), ", Actual diversity:", np.unique(self.y_train, return_counts=True))
             tot_lss = tot_lss / (index + 1)
             train_metric = sklearn.metrics.accuracy_score(self.y_train[:len(y_train_labels)], y_train_labels)
             metric_list.append(train_metric)
