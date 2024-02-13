@@ -6,6 +6,7 @@ from torch_geometric.nn.pool import EdgePooling
 from cluster_pool import ClusterPooling
 
 import sys
+import asyncio
 
 # Define arg parse
 def parser_function() -> argparse.ArgumentParser:
@@ -91,14 +92,14 @@ def build_model(parser: argparse) -> ModelInterface:
     return nm.GCNModel(data=data, labels=labels, task_type_node=task_type_node, test_set_idx=test_set_ids, type=type, pooltype=pooltype)
 
 if __name__ == "__main__":
-    # Define command line arguments
+# Define command line arguments
     parser = parser_function()
 
     # Process command line arguments
     args = parser.parse_args()
-    
+
 
     model = build_model(args)
     print("Model has been built", flush=True)
     display = args.nodisplay is None or not args.nodisplay
-    model.run_folds(folds=10, kCross=False, display=display)
+    run = asyncio.run(model.run_folds(folds=2, kCross=False, display=display, max_conc=2))

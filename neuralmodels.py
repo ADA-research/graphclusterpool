@@ -434,7 +434,7 @@ class GCNModel(ModelInterface):
         self.n_node_features = data[0][0].size(1)
         self.n_labels = len(labels)
 
-    def train_model(self, replace_model=True, verbose=False):
+    async def train_model(self, replace_model=True, verbose=False):
         "Function to fit the model to the data"
         if self.clf is None or replace_model is True:
             self.clf = self.architecture(self.n_node_features, self.task_type_node, self.n_labels, self.pooltype, self.device)

@@ -11,8 +11,7 @@ import numpy as np
 import math
 from sklearn import metrics
 
-from matplotlib import pyplot as plt
-import seaborn as sns
+import asyncio
 
 "Model Interface, few base definitions that each model needs"
 class ModelInterface:
@@ -156,7 +155,7 @@ class ModelInterface:
     "(Boolean) kCross: Use k-fold-cross-validation"
     "(Boolean) display: Print statistics"
     "(Boolean) record_roc: Save and return test probabilities and values for ROC curve"
-    def run_folds(self, folds, kCross=True, display=True, validation=True, contExperiment=None):
+    async def run_folds(self, folds, kCross=True, display=True, validation=True, contExperiment=None, max_conc=4):
         "Function that runs train and test for models"
         train_acc_f = []
         train_loss_f = []
@@ -210,6 +209,7 @@ class ModelInterface:
         if display:
             print("\nRunning " + str(folds-start_fold) + " folds with " + str(self.clfName) + ":", flush=True)
         
+        tasks = []
         for i in range(start_fold, folds):
             if display:
                 start_time = time.time()
@@ -227,37 +227,44 @@ class ModelInterface:
                     self.valid = []
                 self.format_data_values()
 
-            t_acc, t_loss, v_acc, v_loss, model = self.train_model(verbose=False)
+            # Start the subprocess async
+            tasks.append(asyncio.create_task(self.train_model()))
+            #t_acc, t_loss, v_acc, v_loss, model = self.train_model(verbose=False)
 
-            train_acc_f.append(t_acc)
-            train_loss_f.append(t_loss)
-            validation_acc_f.append(v_acc)
-            validation_loss_f.append(v_loss)
-            models.append(model)
+            if len(tasks) >= max_conc:
+                for idt, t in enumerate(tasks):
+                    await t
+                    t_acc, t_loss, v_acc, v_loss, model = t.result()
+                    train_acc_f.append(t_acc)
+                    train_loss_f.append(t_loss)
+                    validation_acc_f.append(v_acc)
+                    validation_loss_f.append(v_loss)
+                    models.append(model)
 
-            #Save data
-            resdict = {
-                "description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}", folds, kCross, self.randomSeed],
-                "train_loss_folds": train_loss_f,
-                "train_acc_folds": train_acc_f,
-                "validation_loss_folds": validation_loss_f,
-                "validation_acc_folds": validation_acc_f,
-                "models": models
-            }
-            with open(filepath, 'wb') as handle:
-                pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+                    #Save data
+                    resdict = {
+                        "description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}", folds, kCross, self.randomSeed],
+                        "train_loss_folds": train_loss_f,
+                        "train_acc_folds": train_acc_f,
+                        "validation_loss_folds": validation_loss_f,
+                        "validation_acc_folds": validation_acc_f,
+                        "models": models
+                    }
+                    with open(filepath, 'wb') as handle:
+                        pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-            if display:
-                elapsed_time = time.time() - start_time
-                elapsed_minutes = int( elapsed_time / 60.0 )
-                elapsed_seconds = elapsed_time % 60   
-                print(f"\t\t Fold {i} completed. ({elapsed_minutes} m {elapsed_seconds} s)", flush=True)
-                
-                mtacc = np.max(t_acc)
-                mvacc = np.max(v_acc)
-                mtloss = np.min(t_loss)
-                mvloss = np.min(v_loss)
+                    if display:
+                        elapsed_time = time.time() - start_time
+                        elapsed_minutes = int( elapsed_time / 60.0 )
+                        elapsed_seconds = elapsed_time % 60   
+                        print(f"\t\t Fold {i - (max_conc-idt)} completed. ({elapsed_minutes} m {elapsed_seconds} s)", flush=True)
+                        
+                        mtacc = np.max(t_acc)
+                        mvacc = np.max(v_acc)
+                        mtloss = np.min(t_loss)
+                        mvloss = np.min(v_loss)
 
-                print(f"\t\t{mtacc:.4f} Best Train Accuracy, {mvacc:.4f} Best Validation Accuracy.", flush=True)
-                print(f"\t\t{mtloss:.4f} Lowest Train Loss, {mvloss:.4f} Lowest Validation Loss", flush=True)
+                        print(f"\t\t{mtacc:.4f} Best Train Accuracy, {mvacc:.4f} Best Validation Accuracy.", flush=True)
+                        print(f"\t\t{mtloss:.4f} Lowest Train Loss, {mvloss:.4f} Lowest Validation Loss", flush=True)
+                tasks = []
             
