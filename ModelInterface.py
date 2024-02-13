@@ -232,9 +232,9 @@ class ModelInterface:
             #t_acc, t_loss, v_acc, v_loss, model = self.train_model(verbose=False)
 
             if len(tasks) >= max_conc:
-                for idt, t in enumerate(tasks):
-                    await t
-                    t_acc, t_loss, v_acc, v_loss, model = t.result()
+                task_results = await asyncio.gather(*tasks)
+                for idt, t_res in enumerate(task_results):
+                    t_acc, t_loss, v_acc, v_loss, model = t_res
                     train_acc_f.append(t_acc)
                     train_loss_f.append(t_loss)
                     validation_acc_f.append(v_acc)
