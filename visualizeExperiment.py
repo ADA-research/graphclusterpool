@@ -38,6 +38,9 @@ for filepath in paths:
     clfName, poolLayer, widthString = data["description"][0], data["description"][1], data["description"][2]
     train_loss_f, train_acc_f = data["train_loss_folds"], data["train_acc_folds"]
     validation_loss_f, validation_acc_f = data["validation_loss_folds"], data["validation_acc_folds"]
+    if "test_set_scores" in data.keys() and len(data["test_set_scores"]) > 0:
+        test_data = data["test_set_scores"]
+        print(f"Test set score for this experiment:{np.mean(test_data)} +/- {np.std(test_data)}")
 
     fig, axes = plt.subplots(2, 2)
     fig.tight_layout(pad=1.0)

@@ -133,7 +133,7 @@ class ModelInterface:
         self.validate_model()
         return self.y_valid, self.y_valid_dist
     
-    def save_results(self, filepath, folds, kCross, train_loss_f, train_acc_f, validation_loss_f, validation_acc_f, model):
+    def save_results(self, filepath, folds, kCross, train_loss_f, train_acc_f, validation_loss_f, validation_acc_f, test_set_scores, model):
         if not Path(filepath).exists(): # Create the empty-ish dict
             if not Path(filepath).parent.exists():
                 Path(filepath).parent.mkdir(parents=True)
@@ -144,6 +144,7 @@ class ModelInterface:
                         "train_acc_folds": [],
                         "validation_loss_folds": [],
                         "validation_acc_folds": [],
+                        "test_set_scores": [],
                         "models": []}
                 pickle.dump(resdict, fileobj)
 
@@ -154,6 +155,8 @@ class ModelInterface:
             resdict["train_acc_folds"].append(train_acc_f)
             resdict["validation_loss_folds"].append(validation_loss_f)
             resdict["validation_acc_folds"].append(validation_acc_f)
+            if test_set_scores is not None:
+                resdict["validation_acc_folds"].append(test_set_scores)
             resdict["models"].append(model)
         with open(filepath, 'wb') as handle:
             pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -213,7 +216,11 @@ class ModelInterface:
             self.generate_train_validation_test()
 
             t_acc, t_loss, v_acc, v_loss, model = self.train_model(verbose=False)
-            self.save_results(filepath, folds, kCross, t_loss, t_acc, v_loss, v_acc, model)
+            test_set_scores = None
+            if len(self.test) > 0:
+                # Get the test set score and place it in test_set_scores
+                pass
+            self.save_results(filepath, folds, kCross, t_loss, t_acc, v_loss, v_acc, test_set_scores, model)
 
             if display:
                 elapsed_time = time.time() - start_time
