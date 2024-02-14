@@ -91,7 +91,7 @@ def build_model(parser: argparse) -> ModelInterface:
         pooltype = ClusterPooling"""
     if parser.task == "graph":
         task_type_node = False
-    return nm.GCNModel(data=data, labels=labels, task_type_node=task_type_node, test_set_idx=test_set_ids, seed=args.seed, type=type, pooltype=pooltype)
+    return nm.GCNModel(data=data, labels=labels, task_type_node=task_type_node, seed=args.seed, type=type, pooltype=pooltype)
 
 if __name__ == "__main__":
     # Define command line arguments

@@ -6,8 +6,6 @@ import sklearn
 
 import torch
 import torch.nn.functional as F
-#from torch.nn import BatchNorm2d
-#from torch_geometric.nn.norm import BatchNorm
 from torch_geometric.nn import GCNConv
 #from torch_geometric.nn.pool import EdgePooling
 from torch_geometric.nn import global_mean_pool
@@ -25,12 +23,12 @@ class GraphConvPoolNNProtein(torch.nn.Module):
     archName = "GCN Pooling for PROTEIN"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
         super().__init__()
-        self.n_epochs = 1000
+        self.n_epochs = 100
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = PoolLayer
         self.hid_channel = 64
-        self.batch_size = 16
+        self.batch_size = 1
         self.learningrate = 0.0005
         
         if self.num_classes == 2: #binary
@@ -41,18 +39,18 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         dropout=0.00
         dropout_pool=dropout
         self.dropout = torch.nn.Dropout(p=dropout)
-
         self.conv1 = GCNConv(node_features, self.hid_channel)
 
         self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool, edge_score_method=ClusterPooling.compute_edge_score_logsoftmax)
-        self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
+        self.conv3 = GCNConv(self.hid_channel, self.num_classes)
 
-        self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
+        #self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
 
     def forward(self, data):
         batch = data[3]
-        data = Data(x=data[0], edge_index=data[1].t().contiguous())
 
+        data = Data(x=data[0], edge_index=data[1].t().contiguous())
         x, edge_index = data.x, data.edge_index
         x = self.conv1(x, edge_index)
         x = F.relu(x)
@@ -64,7 +62,6 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-
         if self.task_type_node: #Dealing with node classification
             #x, edge_index, batch = self.pool2.unpool(x, unpool2)
             x, edge_index, batch = self.pool1.unpool(x, unpool1)
@@ -73,7 +70,7 @@ class GraphConvPoolNNProtein(torch.nn.Module):
             #Try global sum pool
             #Maybe try global max pool maar dat verpest misschien de gradients
 
-        x = self.fc2(x)
+        #x = self.fc2(x)
         
         x = torch.sigmoid(x)
         if self.num_classes == 1: #binary
@@ -423,8 +420,8 @@ class GUNET(torch.nn.Module):
 
 
 class GCNModel(ModelInterface):
-    def __init__(self, data, labels, test_set_idx, task_type_node=True, type=GraphConvPoolNN, pooltype=ClusterPooling):
-        super().__init__(data, labels, test_set_idx)
+    def __init__(self, data, labels, seed=None, task_type_node=True, type=GraphConvPoolNN, pooltype=ClusterPooling):
+        super().__init__(data, labels, seed)
         self.architecture = type
         self.pooltype = pooltype
         self.task_type_node = task_type_node
@@ -434,7 +431,7 @@ class GCNModel(ModelInterface):
         self.n_node_features = data[0][0].size(1)
         self.n_labels = len(labels)
 
-    async def train_model(self, replace_model=True, verbose=False):
+    def train_model(self, replace_model=True, verbose=False):
         "Function to fit the model to the data"
         if self.clf is None or replace_model is True:
             self.clf = self.architecture(self.n_node_features, self.task_type_node, self.n_labels, self.pooltype, self.device)

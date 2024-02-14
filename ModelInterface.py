@@ -18,10 +18,10 @@ class ModelInterface:
     "[1]: Edge tensor"
     "[2]: Node label tensor, containing the class of each node"
 
-    def __init__(self, data, labels, test_set_idx, seed = None):
+    def __init__(self, data, labels, seed = None):
         "Receives data from controller"
-        self.test = [e for i,e in enumerate(data) if i in test_set_idx]
-        self.data = [e for i,e in enumerate(data) if i not in test_set_idx]
+        #self.test = [e for i,e in enumerate(data) if i in test_set_idx]
+        self.data = data
 
         self.labels = labels
         self.n_labels = len(labels)
