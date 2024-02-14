@@ -3,15 +3,12 @@ import random
 import torch
 import pickle
 from datetime import datetime
-import os
 import sys
 from pathlib import Path
 
 import numpy as np
 import math
 from sklearn import metrics
-
-import asyncio
 
 "Model Interface, few base definitions that each model needs"
 class ModelInterface:
@@ -21,7 +18,7 @@ class ModelInterface:
     "[1]: Edge tensor"
     "[2]: Node label tensor, containing the class of each node"
 
-    def __init__(self, data, labels, test_set_idx):
+    def __init__(self, data, labels, test_set_idx, seed = None):
         "Receives data from controller"
         self.test = [e for i,e in enumerate(data) if i in test_set_idx]
         self.data = [e for i,e in enumerate(data) if i not in test_set_idx]
@@ -38,33 +35,27 @@ class ModelInterface:
         #self.device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
         print("Selected Device: ", self.device)
 
-        self.maxSeed = 4294967295 #Maximum value in 32 bits
-        self.randomSeed = random.randint(0, self.maxSeed)
-        
-        
+        self.randomSeed = seed
+        if seed is None:
+            self.randomSeed = random.randint(0, 4294967295)
+
         self.threshold = 0.5 #Standard threshold for binary classifications
 
-        self.cross_test_size = -1
         self.train = []
         self.valid = []
 
-    def generate_train_validation(self, split=0.89, validation=False):
+    def generate_train_validation_test(self, split_train=0.8, split_validation=0.1, shuffle_for=1):
         "Creates a random train/validation/test split from the internal data object"
-        random.Random(self.randomSeed).shuffle(self.data)
-        train_index = int(len(self.data) * split)
+        for _ in range(shuffle_for):
+            random.Random(self.randomSeed).shuffle(self.data)
+        train_index = int(len(self.data) * split_train)
+        validation_index = train_index + int(len(self.data) * split_validation)
         self.train = self.data[:train_index]
-        if validation:
-            self.valid = self.data[train_index:]
-        else:
-            self.train = self.data
-
+        self.valid = self.data[train_index:validation_index]
+        self.test = self.data[validation_index:]
+        
         #If the presented data needs some modification, the following function can be overwritten
         self.format_data_values()
-
-    def split_k_fold(self, folds):
-        "Creates a train/validation/test split based on the number of folds. Returns the number of folds possible."       
-        self.cross_test_size = math.ceil(len(self.data)/ folds)
-        return math.ceil(len(self.data) / self.cross_test_size)
 
     "Finishes data set formatting after generating train/test sets. Overwrite if no Tensors are used."
     def format_data_values(self):
@@ -72,17 +63,17 @@ class ModelInterface:
         for i in range(len(self.train)):
             self.train[i][0] = self.train[i][0].to(self.device) #Send nodes
             self.train[i][1] = self.train[i][1].to(self.device) #Send edges
-            self.train[i][2] = self.train[i][2].to(self.device) #Send node labels
+            self.train[i][2] = self.train[i][2].to(self.device) #Send labels
         
         for i in range(len(self.valid)):
             self.valid[i][0] = self.valid[i][0].to(self.device) #Send nodes
             self.valid[i][1] = self.valid[i][1].to(self.device) #Send edges
-            self.valid[i][2] = self.valid[i][2].to(self.device) #Send node labels
+            self.valid[i][2] = self.valid[i][2].to(self.device) #Send labels
 
         for i in range(len(self.test)):
             self.test[i][0] = self.test[i][0].to(self.device) #Send nodes
             self.test[i][1] = self.test[i][1].to(self.device) #Send edges
-            self.test[i][2] = self.test[i][2].to(self.device) #Send node labels
+            self.test[i][2] = self.test[i][2].to(self.device) #Send labels
 
         "Extracts the x and/or y from the train/validation/test sets"
         self.y_train = []
@@ -133,51 +124,61 @@ class ModelInterface:
     
     """The calculation of the metrics based on the labels and prediction"""
     def metric(self, y_actual, y_prediction):
-        if self.bnry:
-            return metrics.precision_recall_fscore_support(y_actual, y_prediction, average=None, labels=self.labels)
-        else:
-            return metrics.accuracy_score(y_actual, y_prediction)
-    
-    def calculate_test_metrics(self):
-        #self.correct_test_labels()
-        precision, recall, f, _ = metrics.precision_recall_fscore_support(self.y_test, self.y_test_pred, average=None, labels=self.labels)
-        p,r, t = metrics.precision_recall_curve(self.y_test, self.y_test_dist)
-        f1s = (2*(p * r)) / (p + r)
-        #if self.bnry: #Binary, return positive F1 score
-        return f[1], precision, recall, np.max(f1s)
-        #return np.average(f), precision, recall
+        #if self.bnry:
+        #    return metrics.precision_recall_fscore_support(y_actual, y_prediction, average=None, labels=self.labels)
+        #else:
+        return metrics.accuracy_score(y_actual, y_prediction)
 
     def get_valid_preds(self):
         self.validate_model()
         return self.y_valid, self.y_valid_dist
+    
+    def save_results(self, filepath, folds, kCross, train_loss_f, train_acc_f, validation_loss_f, validation_acc_f, model):
+        if not Path(filepath).exists(): # Create the empty-ish dict
+            if not Path(filepath).parent.exists():
+                Path(filepath).parent.mkdir(parents=True)
+            
+            with Path(filepath).open('wb') as fileobj:
+                resdict = {"description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}", folds, kCross, self.randomSeed],
+                        "train_loss_folds": [],
+                        "train_acc_folds": [],
+                        "validation_loss_folds": [],
+                        "validation_acc_folds": [],
+                        "models": []}
+                pickle.dump(resdict, fileobj)
 
-    "(int) folds: Number of folds. If k-cross, then folds <= len(data)"
-    "(Boolean) kCross: Use k-fold-cross-validation"
-    "(Boolean) display: Print statistics"
-    "(Boolean) record_roc: Save and return test probabilities and values for ROC curve"
-    async def run_folds(self, folds, kCross=True, display=True, validation=True, contExperiment=None, max_conc=4):
+        resdict = {}
+        with open(filepath, 'rb+') as handle:
+            resdict = pickle.load(handle)
+            resdict["train_loss_folds"].append(train_loss_f)
+            resdict["train_acc_folds"].append(train_acc_f)
+            resdict["validation_loss_folds"].append(validation_loss_f)
+            resdict["validation_acc_folds"].append(validation_acc_f)
+            resdict["models"].append(model)
+        with open(filepath, 'wb') as handle:
+            pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def run_folds(self, folds, display=True, contExperimentFile=None, seed=None, iteration_id=None):
         "Function that runs train and test for models"
-        train_acc_f = []
-        train_loss_f = []
-        validation_acc_f = []
-        validation_loss_f = []
-        models = []
+        kCross = False # Old variable
         start_fold = 0
         timestamp = datetime.now().strftime('%Y-%m-%d %H.%M.%S')
         dirname = f"results/{self.clfName} {timestamp}"
         filepath = f"{dirname}/result_dictionary.pkl"
+        if seed is not None:
+            self.randomSeed = seed
 
-        if contExperiment is str:
-            print(f"Continuing experiment from {contExperiment}."
+        if contExperimentFile is str and iteration_id is None:
+            print(f"Continuing experiment from {contExperimentFile}."
                   "\nWARNING: Any change to the architecture or Hyperparameters will render this experiment useless.", flush=True)
-            dirname = contExperiment
-            filepath = contExperiment
+            dirname = contExperimentFile
+            filepath = contExperimentFile
             if dirname.endswith(".pkl"):
                 dirname = "/".join(dirname.split("/")[:-1])
             else:
                 filepath += "/".join(dirname.split("/")) + "result_dictionary.pkl"
             
-            if not os.path.isfile(filepath):
+            if not Path(filepath).is_file():
                 print(f"Incorrect file for continuation: {filepath}")
                 sys.exit(-1)
             
@@ -187,84 +188,41 @@ class ModelInterface:
 
             # clfName, poolLayer, widthString = data["description"][0], data["description"][1], data["description"][2]
             folds = data["description"][3]
-            kCross = data["description"][4]
-            if kCross:
-                # For kCross we must reuse the same random seed to continue the folds
-                self.randomSeed = data["description"][5]
-                random.Random(self.randomSeed).shuffle(self.data)
-            train_loss_f, train_acc_f = data["train_loss_folds"], data["train_acc_folds"]
-            validation_loss_f, validation_acc_f = data["validation_loss_folds"], data["validation_acc_folds"]
-            start_fold = len(train_loss_f)
+            start_fold = len(data["train_loss_folds"])
             timestamp = None
+        elif iteration_id is not None: #
+            filepath = contExperimentFile
         else:
             Path(dirname).mkdir(parents=True)
 
-        if not kCross:
-            self.generate_train_validation(validation=validation)
-        elif self.cross_test_size <= 0: #Have to create a cross validation
-            if folds > len(self.data):
-                folds = len(self.data)
-            folds = self.split_k_fold(folds)
-
         if display:
             print("\nRunning " + str(folds-start_fold) + " folds with " + str(self.clfName) + ":", flush=True)
-        
-        tasks = []
-        for i in range(start_fold, folds):
+
+        run_folds = folds
+        if iteration_id is not None: # We will only run one fold
+            start_fold = iteration_id
+            run_folds = start_fold + 1
+            # Scroll through the seed to the current state
+            self.generate_train_validation_test(shuffle_for=start_fold)
+
+        for i in range(start_fold, run_folds):
             if display:
                 start_time = time.time()
                 print("\tFold " + str(i+1) + "/" + str(folds) + "...")
 
-            if not kCross: #Generate new sets
-                self.generate_train_validation(validation=validation)
-            else: #Shift the sets one up
-                tindex = self.cross_test_size * (i)
-                tend = min(tindex + self.cross_test_size, len(self.data))
-                self.valid = self.data[tindex:tend]
-                self.train = self.data[:tindex] + self.data[tend:]
-                if len(self.train) == 0:
-                    self.train = self.data[tindex:tend]
-                    self.valid = []
-                self.format_data_values()
+            self.generate_train_validation_test()
 
-            # Start the subprocess async
-            tasks.append(asyncio.create_task(self.train_model()))
-            #t_acc, t_loss, v_acc, v_loss, model = self.train_model(verbose=False)
+            t_acc, t_loss, v_acc, v_loss, model = self.train_model(verbose=False)
+            self.save_results(filepath, folds, kCross, t_loss, t_acc, v_loss, v_acc, model)
 
-            if len(tasks) >= max_conc:
-                task_results = await asyncio.gather(*tasks)
-                for idt, t_res in enumerate(task_results):
-                    t_acc, t_loss, v_acc, v_loss, model = t_res
-                    train_acc_f.append(t_acc)
-                    train_loss_f.append(t_loss)
-                    validation_acc_f.append(v_acc)
-                    validation_loss_f.append(v_loss)
-                    models.append(model)
+            if display:
+                elapsed_time = time.time() - start_time
+                elapsed_minutes = int( elapsed_time / 60.0 )
+                elapsed_seconds = elapsed_time % 60   
+                print(f"\t\t Fold {i} completed. ({elapsed_minutes} m {elapsed_seconds} s)", flush=True)
+                
+                mtacc, mvacc = np.max(t_acc), np.max(v_acc)
+                mtloss, mvloss = np.min(t_loss), np.min(v_loss)
+                print(f"\t\t{mtacc:.4f} Best Train Accuracy, {mvacc:.4f} Best Validation Accuracy.", flush=True)
+                print(f"\t\t{mtloss:.4f} Lowest Train Loss, {mvloss:.4f} Lowest Validation Loss", flush=True)
 
-                    #Save data
-                    resdict = {
-                        "description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}", folds, kCross, self.randomSeed],
-                        "train_loss_folds": train_loss_f,
-                        "train_acc_folds": train_acc_f,
-                        "validation_loss_folds": validation_loss_f,
-                        "validation_acc_folds": validation_acc_f,
-                        "models": models
-                    }
-                    with open(filepath, 'wb') as handle:
-                        pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
-
-                    if display:
-                        elapsed_time = time.time() - start_time
-                        elapsed_minutes = int( elapsed_time / 60.0 )
-                        elapsed_seconds = elapsed_time % 60   
-                        print(f"\t\t Fold {i - (max_conc-idt)} completed. ({elapsed_minutes} m {elapsed_seconds} s)", flush=True)
-                        
-                        mtacc = np.max(t_acc)
-                        mvacc = np.max(v_acc)
-                        mtloss = np.min(t_loss)
-                        mvloss = np.min(v_loss)
-
-                        print(f"\t\t{mtacc:.4f} Best Train Accuracy, {mvacc:.4f} Best Validation Accuracy.", flush=True)
-                        print(f"\t\t{mtloss:.4f} Lowest Train Loss, {mvloss:.4f} Lowest Validation Loss", flush=True)
-                tasks = []
-            

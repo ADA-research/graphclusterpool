@@ -151,13 +151,14 @@ class ClusterPooling(torch.nn.Module):
         ["x", "edge_index", "cluster", "batch", "new_edge_score", "old_edge_score", "selected_edges", "cluster_map", "edge_mask"])
 
     def __init__(self, in_channels, edge_score_method=None, dropout=0.0,
-                 add_to_edge_score=0.5):
+                 add_to_edge_score=0.5, threshold=0.5):
         super().__init__()
         self.in_channels = in_channels
         if edge_score_method is None:
-            edge_score_method = self.compute_edge_score_softmax
+            edge_score_method = self.compute_edge_score_tanh
         self.compute_edge_score = edge_score_method
         self.add_to_edge_score = add_to_edge_score
+        self.threshhold = threshold
         self.dropout = dropout
 
         self.lin = torch.nn.Linear(2 * in_channels, 1)
@@ -178,6 +179,10 @@ class ClusterPooling(torch.nn.Module):
     @staticmethod
     def compute_edge_score_sigmoid(raw_edge_score, edge_index, num_nodes):
         return torch.sigmoid(raw_edge_score)
+
+    @staticmethod
+    def compute_edge_score_logsoftmax(raw_edge_score, edge_index, num_nodes):
+        return torch.nn.functional.log_softmax(raw_edge_score, dim=0)
 
     def forward(self, x, edge_index, batch):
         r"""Forward computation which computes the raw edge score, normalizes
@@ -205,7 +210,7 @@ class ClusterPooling(torch.nn.Module):
         e = F.dropout(e, p=self.dropout, training=self.training)
 
         e = self.compute_edge_score(e, edge_index, x.size(0)) 
-        e = e + self.add_to_edge_score
+        #e = e + self.add_to_edge_score
         x, edge_index, batch, unpool_info = self.__merge_edges__(
             x, edge_index, batch, e)
 
@@ -216,12 +221,12 @@ class ClusterPooling(torch.nn.Module):
         cluster = torch.empty_like(batch, device=torch.device('cpu'))
 
         #We don't deal with double edged node pairs e.g. [a,b] and [b,a] in edge_index
-        
-        if edge_index.size(1) > x.size(0): #More edges than nodes, calculate quantile node based
+        edge_mask = (edge_score >= self.threshhold)
+        """if edge_index.size(1) > x.size(0): #More edges than nodes, calculate quantile node based
             quantile = 1- (int(x.size(0) / 2) / edge_index.size(1)) #Calculate the top quantile
             edge_mask = (edge_score > (torch.quantile(edge_score, quantile)))
         else: #More nodes than edges, select half of the edges
-            edge_mask = (edge_score >= torch.median(edge_score))
+            edge_mask = (edge_score >= torch.median(edge_score))"""
         
         sel_edge = edge_mask.nonzero().flatten()        
         new_edge = torch.index_select(edge_index, dim=1, index=sel_edge).to(x.device)

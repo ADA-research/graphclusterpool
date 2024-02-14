@@ -29,7 +29,7 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = PoolLayer
-        self.hid_channel = 32
+        self.hid_channel = 64
         self.batch_size = 16
         self.learningrate = 0.0005
         
@@ -38,13 +38,13 @@ class GraphConvPoolNNProtein(torch.nn.Module):
 
         self.task_type_node = task_type_node
 
-        dropout=0.0
-        dropout_pool=0.0
+        dropout=0.00
+        dropout_pool=dropout
         self.dropout = torch.nn.Dropout(p=dropout)
 
         self.conv1 = GCNConv(node_features, self.hid_channel)
 
-        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool, edge_score_method=ClusterPooling.compute_edge_score_logsoftmax)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
@@ -499,9 +499,6 @@ class GCNModel(ModelInterface):
 
                 loss.backward()              
                 optimizer.step()
-                
-                #if index > 50:
-                #    break
             
             if not self.bnry:
                 y_train_labels = np.argmax(y_train_probs, axis=1)
@@ -556,7 +553,7 @@ class GCNModel(ModelInterface):
                     best_mod = copy.deepcopy(self.clf.state_dict())
                     
                 if verbose or True:
-                    print(f"\t\t\t\t\t\tValidation result: {valid_metric:.4f} [Accuracy] --- {val_loss:.4f} [Loss] ", flush=True)
+                    print(f"\t\t\t\t\t\t Validation result: {valid_metric:.4f} [Accuracy] --- {val_loss:.4f} [Loss] ", flush=True)
             
         self.clf.load_state_dict(best_mod)
         self.clf.train(mode=False)
