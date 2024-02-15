@@ -9,14 +9,16 @@ from pathlib import Path
 
 sns.set_theme()
 #sns.set_style("darkgrid")
-
-if len(sys.argv) != 2:
+printdata = False
+if len(sys.argv) == 1:
     paths = [(x / "results_dictionary.pkl") for x in Path("results").iterdir() if x.is_dir() and not any([file for file in x.iterdir() if file.suffix == ".png"])]
     paths = [x for x in paths if x.exists()]
     if len(paths) == 0:
         print("Could not auto detect any plots still to be made. Exiting.")
         sys.exit()
 else:
+    if len(sys.argv) == 3:
+        printdata = True
     filepath = Path(sys.argv[1])
 
     if not filepath.exists():
@@ -41,7 +43,11 @@ for filepath in paths:
     if "test_set_scores" in data.keys() and len(data["test_set_scores"]) > 0:
         test_data = data["test_set_scores"]
         print(f"Test set score for this experiment:{np.mean(test_data)} +/- {np.std(test_data)}")
-
+    if printdata:
+        print(data["description"])
+        bve = [np.argmax(f) for f in data["validation_acc_folds"]]
+        maxval = [np.round(np.max(f), 4) for f in data["validation_acc_folds"]]
+        print(f"Best validation epochs ({np.min(bve)}-{np.max(bve)}):\n {bve}\n{maxval}")
     fig, axes = plt.subplots(2, 2)
     fig.tight_layout(pad=1.0)
     fig.suptitle(f"Training metrics {clfName} {poolLayer})")

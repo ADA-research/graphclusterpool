@@ -19,36 +19,35 @@ from ModelInterface import ModelInterface
 * Batch size does not seem to work well tried many sizes (4,8,16,32,64)
 * Hidden channel seems to be optimal at 64, maybe 32 could also be good
 * Learning rate seems stable
-* Dropout can be 0.0, 0.05 or 0.1 but higher is too unstable. Have not experimented with different dropout for pooling.
+* Dropout can be 0.0, 0.05 or 0.1 but higher (0.4-0.5) also shows some potential
 * Activation function for pooling works best with softmax (tried softmax, logsoftmax, sigmoid and tanh)
 * Architecture is the smallest possible in number of layers to be able to memorise the data set
-*
+* The network is really good at overfitting, not so good at regularization 
 """
 class GraphConvPoolNNProtein(torch.nn.Module):
     archName = "GCN Pooling for PROTEIN"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
         super().__init__()
-        self.n_epochs = 250
+        self.n_epochs = 200
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = PoolLayer
-        self.hid_channel = 64
+        self.hid_channel = 16
         self.batch_size = 1
         self.learningrate = 0.0005
-        
+        dropout=0.5
+        dropout_pool=dropout
+        self.task_type_node = task_type_node
         if self.num_classes == 2: #binary
             self.num_classes = 1
-
-        self.task_type_node = task_type_node
-
-        dropout=0.1
-        dropout_pool=dropout
+        
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
-
+        #self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
         self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool, edge_score_method=ClusterPooling.compute_edge_score_softmax)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
-
+        #self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
 
     def forward(self, data):
@@ -60,12 +59,19 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         x = self.conv1(x, edge_index)
         x = F.relu(x)
         x = self.dropout(x)
+        #x = self.conv2(x, edge_index)
+        #x = F.relu(x)
+        #x = self.dropout(x)
 
         x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
 
         x = self.conv3(x, edge_index)
         x = F.relu(x)
         x = self.dropout(x)
+        #x = self.conv4(x, edge_index)
+        #x = F.relu(x)
+        #x = self.dropout(x)
+
 
         if self.task_type_node: #Dealing with node classification
             x, edge_index, batch = self.pool1.unpool(x, unpool1)
@@ -74,13 +80,17 @@ class GraphConvPoolNNProtein(torch.nn.Module):
             #Try global sum pool
             #Maybe try global max pool maar dat verpest misschien de gradients
 
+        #x = self.fc1(x)
+        #x = F.relu(x)
+        #x = self.dropout(x)
         x = self.fc2(x)
         
-        x = torch.sigmoid(x)
+        
         if self.num_classes == 1: #binary
+            x = torch.sigmoid(x)
             return torch.flatten(x)
         else:
-            return x
+            return torch.nn.functional.log_softmax(x, dim=1)
 
 """Architecture for REDDIT-BINARY
 * 1 Batch size

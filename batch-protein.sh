@@ -2,12 +2,13 @@
 #SBATCH --mem-per-cpu=2000
 #SBATCH --job-name GCN-Protein
 #SBATCH --output=results/slurm-%A_%a.out
-#SBATCH --array=0-9%10
+#SBATCH --array=0-24%25
+#SBATCH --exclude=kathleencpu[05]
 
-seed=$(($RANDOM*$RANDOM))
-nfolds=10
+seed=$1
+date=$2
+nfolds=25
 dataset="PROTEIN"
-printf -v date '%(%Y-%m-%d.%H:%M:%S)T' -1
 outputdir="results/GCN_${dataset}.${date}/"
 mkdir $outputdir > /dev/null
 filename="${outputdir}results_dictionary.pkl"
