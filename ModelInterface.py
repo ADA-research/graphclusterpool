@@ -133,13 +133,13 @@ class ModelInterface:
         self.validate_model()
         return self.y_valid, self.y_valid_dist
     
-    def save_results(self, filepath, folds, kCross, train_loss_f, train_acc_f, validation_loss_f, validation_acc_f, test_set_scores, model):
+    def save_results(self, filepath, folds, train_loss_f, train_acc_f, validation_loss_f, validation_acc_f, test_set_scores, model):
         if not Path(filepath).exists(): # Create the empty-ish dict
             if not Path(filepath).parent.exists():
                 Path(filepath).parent.mkdir(parents=True)
             
             with Path(filepath).open('wb') as fileobj:
-                resdict = {"description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}", folds, kCross, self.randomSeed],
+                resdict = {"description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}", folds, self.randomSeed],
                         "train_loss_folds": [],
                         "train_acc_folds": [],
                         "validation_loss_folds": [],
@@ -156,7 +156,7 @@ class ModelInterface:
             resdict["validation_loss_folds"].append(validation_loss_f)
             resdict["validation_acc_folds"].append(validation_acc_f)
             if test_set_scores is not None:
-                resdict["validation_acc_folds"].append(test_set_scores)
+                resdict["test_set_scores"].append(test_set_scores)
             resdict["models"].append(model)
         with open(filepath, 'wb') as handle:
             pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
@@ -216,11 +216,23 @@ class ModelInterface:
             self.generate_train_validation_test()
 
             t_acc, t_loss, v_acc, v_loss, model = self.train_model(verbose=False)
-            test_set_scores = None
+            test_score = None
             if len(self.test) > 0:
+                tlbls = []
                 # Get the test set score and place it in test_set_scores
-                pass
-            self.save_results(filepath, folds, kCross, t_loss, t_acc, v_loss, v_acc, test_set_scores, model)
+                for data in self.test: #For every graph in the data set
+                    batch = torch.tensor([0 for _ in range(data[0].size(0))])
+                    data.append(batch)
+                    out = self.clf(data) #Get the labels from all the nodes in one graph 
+                    test_lab = data[2]
+                    if not self.bnry:
+                        test_lab = torch.nn.functional.one_hot(test_lab, self.n_labels)
+                    
+                    if not self.bnry:
+                        out = out.argmax(dim=1)
+                    tlbls.extend(np.round(out.detach().numpy()).tolist())
+                test_score = self.metric(y_actual=self.y_test, y_prediction=tlbls)
+            self.save_results(filepath, folds, t_loss, t_acc, v_loss, v_acc, test_score, model)
 
             if display:
                 elapsed_time = time.time() - start_time
@@ -232,4 +244,6 @@ class ModelInterface:
                 mtloss, mvloss = np.min(t_loss), np.min(v_loss)
                 print(f"\t\t{mtacc:.4f} Best Train Accuracy, {mvacc:.4f} Best Validation Accuracy.", flush=True)
                 print(f"\t\t{mtloss:.4f} Lowest Train Loss, {mvloss:.4f} Lowest Validation Loss", flush=True)
+                if test_score is not None:
+                    print(f"\t\t [!] Test Set Score: {test_score:.4f}")
 
