@@ -24,7 +24,6 @@ def parser_function() -> argparse.ArgumentParser:
 
 def build_model(parser: argparse) -> ModelInterface:
     data = None
-    test_set_ids = None
     labels = None
     type = nm.GraphConvPoolNN
     task_type_node = True
@@ -40,8 +39,6 @@ def build_model(parser: argparse) -> ModelInterface:
             else:
                 data = [list(a) for a in zip(prodict["node_tensor_tuple"], prodict["edge_tensor_tuple"], prodict["node_label_tensor_tuple"])]
                 labels = prodict["node_label_range"]
-            
-        test_set_ids = []
     elif parser.dataset == "COLLAB":
         type = nm.GraphConvPoolNNCOLLAB
         with open("Datasets/COLLAB/COLLAB.pkl", 'rb') as pkl:
@@ -53,7 +50,6 @@ def build_model(parser: argparse) -> ModelInterface:
             else:
                 print(f"ERROR NO NODE TASK FOR {parser.dataset}")
                 sys.exit(-1)
-        test_set_ids = []
     elif parser.dataset == "REDDIT-BINARY":
         type = nm.GraphConvPoolNNRedditBinary
         with open("Datasets/REDDIT-BINARY/REDDIT-BINARY.pkl", 'rb') as pkl:
@@ -65,8 +61,9 @@ def build_model(parser: argparse) -> ModelInterface:
             else:
                 print(f"ERROR NO NODE TASK FOR {parser.dataset}")
                 sys.exit(-1)
-        test_set_ids = []
     elif parser.dataset == "REDDIT-MULTI":
+        #This one does not have its own architecture yet
+        type = nm.GraphConvPoolNN
         with open("Datasets/REDDIT-MULTI-12K/REDDIT-MULTI-12K.pkl", 'rb') as pkl:
             prodict = pickle.load(pkl)
             if args.task == "graph":
@@ -76,19 +73,43 @@ def build_model(parser: argparse) -> ModelInterface:
             else:
                 print(f"ERROR NO NODE TASK FOR {parser.dataset}")
                 sys.exit(-1)
-        test_set_ids = []
-        
-    """if parser.model.startswith("GCN"):
+    elif parser.dataset == "IMDB-BINARY":
+        #This one uses reddit binary for now but should get its own
+        type = nm.GraphConvPoolNNRedditBinary
+        with open("Datasets/IMDB-BINARY/IMDB-BINARY.pkl", 'rb') as pkl:
+            prodict = pickle.load(pkl)
+            if args.task == "graph":
+                lbls = prodict["graph_label_tensor"]
+                data = [list(a) for a in zip(prodict["node_tensor_tuple"], prodict["edge_tensor_tuple"], lbls.tensor_split([i for i in range(1, lbls.size(0))]) )]
+                labels = prodict["graph_label_range"]
+            else:
+                print(f"ERROR NO NODE TASK FOR {parser.dataset}")
+                sys.exit(-1)
+    elif parser.dataset == "IMDB-MULTI":
+        #This one does not have its own architecture yet
         type = nm.GraphConvPoolNN
-    elif parser.model.startswith("GUNET"):
-        type = nm.GUNET
-    elif parser.model is not None:
-        print("Error. model argument not recognized:", parser.model)
-        sys.exit(-1)
-    if parser.model.endswith("Diehl"):
-        pooltype = EdgePooling
-    else:
-        pooltype = ClusterPooling"""
+        with open("Datasets/IMDB-MULTI/IMDB-MULTI.pkl", 'rb') as pkl:
+            prodict = pickle.load(pkl)
+            if args.task == "graph":
+                lbls = prodict["graph_label_tensor"]
+                data = [list(a) for a in zip(prodict["node_tensor_tuple"], prodict["edge_tensor_tuple"], lbls.tensor_split([i for i in range(1, lbls.size(0))]) )]
+                labels = prodict["graph_label_range"]
+            else:
+                print(f"ERROR NO NODE TASK FOR {parser.dataset}")
+                sys.exit(-1)
+    elif parser.dataset == "NCI1":
+        #This one does not have its own architecture yet
+        type = nm.GraphConvPoolNN
+        with open("Datasets/NCI1/NCI1.pkl", 'rb') as pkl:
+            prodict = pickle.load(pkl)
+            if args.task == "graph":
+                lbls = prodict["graph_label_tensor"]
+                data = [list(a) for a in zip(prodict["node_tensor_tuple"], prodict["edge_tensor_tuple"], lbls.tensor_split([i for i in range(1, lbls.size(0))]) )]
+                labels = prodict["graph_label_range"]
+            else:
+                print(f"ERROR NO NODE TASK FOR {parser.dataset}")
+                sys.exit(-1)
+
     if parser.task == "graph":
         task_type_node = False
     return nm.GCNModel(data=data, labels=labels, task_type_node=task_type_node, seed=args.seed, type=type, pooltype=pooltype)

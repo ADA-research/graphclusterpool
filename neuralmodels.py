@@ -92,18 +92,17 @@ class GraphConvPoolNNRedditBinary(torch.nn.Module):
         self.n_epochs = 300
         self.num_classes = num_classes
         self.device = device
+        self.task_type_node = task_type_node
         self.poolLayer = PoolLayer
         self.hid_channel = 64
         self.batch_size = 1
         self.learningrate = 0.001
-        
+        dropout=0.0
+        dropout_pool=dropout
+
         if self.num_classes == 2: #binary
             self.num_classes = 1
-
-        self.task_type_node = task_type_node
-
-        dropout=0.0
-        dropout_pool=0.0
+        
         self.dropout = torch.nn.Dropout(p=dropout)
 
         self.conv1 = GCNConv(node_features, self.hid_channel)
@@ -173,34 +172,38 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
     archName = "GCN Pooling COLLAB"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
         super().__init__()
-        self.n_epochs = 250
+        self.n_epochs = 400
         self.num_classes = num_classes
         self.device = device
+        self.task_type_node = task_type_node
         self.poolLayer = PoolLayer
         self.hid_channel = 128
         self.batch_size = 1
-        self.learningrate = 0.00025
+        #self.learningrate = 0.00025
+        self.learningrate = 0.0005
+        self.weight_decay = 0
+        self.lrhalving = False
+        self.lrcosine = True
+        self.halvinginterval = 100
+        dropout=0.0
+        dropout_pool=0.0
         
         if self.num_classes == 2: #binary
             self.num_classes = 1
 
-        self.task_type_node = task_type_node
-
-        dropout=0.025
-        dropout_pool=0.0
         self.dropout = torch.nn.Dropout(p=dropout)
 
         self.conv1 = GCNConv(node_features, self.hid_channel)
-        self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
-        self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
+        #sself.conv4 = GCNConv(self.hid_channel, self.hid_channel)
 
         #self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
         #self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
 
-        self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
+        #self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
 
     def forward(self, data):
@@ -213,9 +216,9 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-        x = self.conv2(x, edge_index)
-        x = F.relu(x)
-        x = self.dropout(x)
+        #x = self.conv2(x, edge_index)
+        #x = F.relu(x)
+        #x = self.dropout(x)
 
         x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
 
@@ -223,9 +226,9 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-        x = self.conv4(x, edge_index)
-        x = F.relu(x)
-        x = self.dropout(x)
+        #x = self.conv4(x, edge_index)
+        #x = F.relu(x)
+        #x = self.dropout(x)
 
         """x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
 
@@ -241,11 +244,11 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
             #Try global sum pool
             #Maybe try global max pool maar dat verpest misschien de gradients
 
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-        x = self.fc2(x)
+        #x = self.fc1(x)
+        #x = F.relu(x)
+        #x = self.dropout(x)
         
+        x = self.fc2(x)
         
         if self.num_classes == 1: #binary
             x = torch.sigmoid(x)
@@ -465,9 +468,16 @@ class GCNModel(ModelInterface):
         vmetric_list = []
 
         batch_size = 1
-        
+        lrhalving = False
+        halvinginterval = 50
         if hasattr(self.clf, "batch_size"):
             batch_size = self.clf.batch_size
+        if hasattr(self.clf, "lrhalving"):
+            lrhalving = self.clf.lrhalving
+            if hasattr(self.clf, "halvinginterval"):
+                halvinginterval = self.clf.halvinginterval 
+        if hasattr(self.clf, "lrcosine") and self.clf.lrcosine == True:
+            torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.clf.n_epochs + 1)
         
         best_mod = copy.deepcopy(self.clf.state_dict())
         for epoch in range(1, self.clf.n_epochs + 1):
@@ -519,10 +529,12 @@ class GCNModel(ModelInterface):
                 break
             
             # From Diehl paper
-            if hasattr(self.clf, "lrhalving") and self.clf.lrhalving == True:
-                if epoch > 0 and epoch % 50 == 0:
+            if lrhalving and self.clf.lrhalving == True and epoch > 0:
+                
+                if epoch % halvinginterval == 0:
                     for g in optimizer.param_groups:
-                        if verbose or True: print(f"\n\t\t[INFO] Shrinking Learning Rate from {g['lr']} to {g['lr'] / 2}\n")
+                        if verbose or True:
+                            print(f"\n\t\t[INFO] Shrinking Learning Rate from {g['lr']} to {g['lr'] / 2}\n")
                         g['lr'] = g['lr'] / 2
 
             if len(self.valid) > 0:

@@ -1,13 +1,13 @@
 #!/bin/sh
-#SBATCH --mem-per-cpu=2000
+#SBATCH --mem-per-cpu=3000
 #SBATCH --job-name GCN-Collab
 #SBATCH --output=results/slurm-%A_%a.out
-#SBATCH --array=0-1%2
+#SBATCH --array=0-9%10
 #SBATCH --exclude=kathleencpu[05]
 
 seed=$1
 date=$2
-nfolds=2
+nfolds=10
 dataset="COLLAB"
 outputdir="results/GCN_${dataset}.${date}/"
 mkdir $outputdir > /dev/null

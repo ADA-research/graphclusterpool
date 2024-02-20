@@ -163,7 +163,6 @@ class ModelInterface:
 
     def run_folds(self, folds, display=True, contExperimentFile=None, seed=None, iteration_id=None):
         "Function that runs train and test for models"
-        kCross = False # Old variable
         start_fold = 0
         timestamp = datetime.now().strftime('%Y-%m-%d %H.%M.%S')
         dirname = f"results/{self.clfName} {timestamp}"
@@ -209,11 +208,11 @@ class ModelInterface:
             self.generate_train_validation_test(shuffle_for=start_fold)
 
         for i in range(start_fold, run_folds):
+            self.generate_train_validation_test()
             if display:
                 start_time = time.time()
-                print("\tFold " + str(i+1) + "/" + str(folds) + "...")
-
-            self.generate_train_validation_test()
+                #print("\tFold " + str(i+1) + "/" + str(folds) + "...")
+                print(f"Running fold with T/V/T sizes: {len(self.train)}, {len(self.valid)}, {len(self.test)}")
 
             t_acc, t_loss, v_acc, v_loss, model = self.train_model(verbose=False)
             test_score = None
