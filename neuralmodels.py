@@ -81,10 +81,7 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         else:
             return torch.nn.functional.log_softmax(x, dim=1)
 
-"""Architecture for REDDIT-BINARY
-* 1 Batch size
-* Uses learning rate decay (DIEHL) halving every 50 epochs
-"""
+"""Architecture for REDDIT-BINARY"""
 class GraphConvPoolNNRedditBinary(torch.nn.Module):
     archName = "GCN Pooling for REDDIT-BINARY"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
@@ -97,6 +94,8 @@ class GraphConvPoolNNRedditBinary(torch.nn.Module):
         self.hid_channel = 64
         self.batch_size = 1
         self.learningrate = 0.001
+        self.lrhalving = True
+        self.halvinginterval = 150
         dropout=0.0
         dropout_pool=dropout
 
@@ -182,9 +181,9 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
         #self.learningrate = 0.00025
         self.learningrate = 0.0005
         self.weight_decay = 0
-        self.lrhalving = False
         self.lrcosine = True
-        self.halvinginterval = 100
+        self.lrhalving = False
+        self.halvinginterval = 150
         dropout=0.0
         dropout_pool=0.0
         
@@ -477,7 +476,8 @@ class GCNModel(ModelInterface):
             if hasattr(self.clf, "halvinginterval"):
                 halvinginterval = self.clf.halvinginterval 
         if hasattr(self.clf, "lrcosine") and self.clf.lrcosine == True:
-            torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.clf.n_epochs + 1)
+            #torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.clf.n_epochs + 1)
+            torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=2*(self.clf.n_epochs + 1))
         
         best_mod = copy.deepcopy(self.clf.state_dict())
         for epoch in range(1, self.clf.n_epochs + 1):

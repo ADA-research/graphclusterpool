@@ -22,7 +22,6 @@ class ModelInterface:
         "Receives data from controller"
         #self.test = [e for i,e in enumerate(data) if i in test_set_idx]
         self.data = data
-
         self.labels = labels
         self.n_labels = len(labels)
         self.bnry = (self.n_labels == 2)

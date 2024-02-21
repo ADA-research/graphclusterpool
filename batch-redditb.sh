@@ -1,14 +1,13 @@
 #!/bin/sh
 #SBATCH --mem-per-cpu=3000
-#SBATCH --job-name GCN-Collab
-#SBATCH --output=results/slurm-%A_%a.out
-#SBATCH --array=0-9%10
-#SBATCH --exclude=kathleencpu[05]
+#SBATCH --job-name GCN-REDDITB
+#SBATCH --output=results/REDDIT-BINARY/slurm-%A_%a.out
+#SBATCH --array=0-1%2
 
 seed=$1
 date=$2
-nfolds=10
-dataset="COLLAB"
+nfolds=2
+dataset="REDDIT-BINARY"
 outputdir="results/${dataset}/GCN_${dataset}.${date}/"
 mkdir $outputdir > /dev/null
 filename="${outputdir}results_dictionary.pkl"

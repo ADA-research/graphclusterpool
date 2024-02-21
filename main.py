@@ -109,6 +109,9 @@ def build_model(parser: argparse) -> ModelInterface:
             else:
                 print(f"ERROR NO NODE TASK FOR {parser.dataset}")
                 sys.exit(-1)
+    else:
+        print(f"ERROR: Data set {parser.dataset} not recognized. Exiting.")
+        sys.exit(-1)
 
     if parser.task == "graph":
         task_type_node = False

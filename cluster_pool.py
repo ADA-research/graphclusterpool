@@ -219,22 +219,12 @@ class ClusterPooling(torch.nn.Module):
     """ New merge function for combining the nodes """
     def __merge_edges__(self, x, edge_index, batch, edge_score):
         cluster = torch.empty_like(batch, device=torch.device('cpu'))
-
-        #We don't deal with double edged node pairs e.g. [a,b] and [b,a] in edge_index
+        # Select the edges from the Graph
         edge_mask = (edge_score >= self.threshhold)
-        """if edge_index.size(1) > x.size(0): #More edges than nodes, calculate quantile node based
-            quantile = 1- (int(x.size(0) / 2) / edge_index.size(1)) #Calculate the top quantile
-            edge_mask = (edge_score > (torch.quantile(edge_score, quantile)))
-        else: #More nodes than edges, select half of the edges
-            edge_mask = (edge_score >= torch.median(edge_score))"""
-        
         sel_edge = edge_mask.nonzero().flatten()        
         new_edge = torch.index_select(edge_index, dim=1, index=sel_edge).to(x.device)
-        
+        # Determine the components in the new graph G' = (V, E')
         components = calculate_components(x.size(0), new_edge) #47.3% of time
-        #components = None
-        #cluster, i = calculate_components_torch(x.size(0), new_edge) #
-        #print(cluster)
         # Unpack the components into a cluster index for each node
         i = 0
         for c in components: #15% of time
