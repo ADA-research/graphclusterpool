@@ -1,15 +1,14 @@
 #!/bin/sh
 #SBATCH --mem-per-cpu=2000
 #SBATCH --job-name GCN-Protein
-#SBATCH --output=results/slurm-%A_%a.out
+#SBATCH --output=results/PROTEIN/slurm-%A_%a.out
 #SBATCH --array=0-99%50
-#SBATCH --exclude=kathleencpu[05]
 
 seed=$1
 date=$2
 nfolds=100
 dataset="PROTEIN"
-outputdir="results/GCN_${dataset}.${date}/"
+outputdir="results/${dataset}/GCN_${dataset}.${date}/"
 mkdir $outputdir > /dev/null
 filename="${outputdir}results_dictionary.pkl"
 
