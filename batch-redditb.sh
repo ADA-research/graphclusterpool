@@ -2,11 +2,11 @@
 #SBATCH --mem-per-cpu=3000
 #SBATCH --job-name GCN-REDDITB
 #SBATCH --output=results/REDDIT-BINARY/slurm-%A_%a.out
-#SBATCH --array=0-1%2
+#SBATCH --array=0-99%100
 
 seed=$1
 date=$2
-nfolds=2
+nfolds=100
 dataset="REDDIT-BINARY"
 outputdir="results/${dataset}/GCN_${dataset}.${date}/"
 mkdir $outputdir > /dev/null

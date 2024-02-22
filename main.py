@@ -125,7 +125,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     model = build_model(args)
-    print("Model has been built", flush=True)
+    
+    print(f"Arguments have been parsed. Starting procedure.", flush=True)
     display = args.nodisplay is None or not args.nodisplay
     file = args.filename
 

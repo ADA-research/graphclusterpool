@@ -86,16 +86,16 @@ class GraphConvPoolNNRedditBinary(torch.nn.Module):
     archName = "GCN Pooling for REDDIT-BINARY"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
         super().__init__()
-        self.n_epochs = 300
+        self.n_epochs = 200
         self.num_classes = num_classes
         self.device = device
         self.task_type_node = task_type_node
         self.poolLayer = PoolLayer
-        self.hid_channel = 64
+        self.hid_channel = 128
         self.batch_size = 1
         self.learningrate = 0.001
         self.lrhalving = True
-        self.halvinginterval = 150
+        self.halvinginterval = 50
         dropout=0.0
         dropout_pool=dropout
 
@@ -183,7 +183,7 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
         self.weight_decay = 0
         self.lrcosine = True
         self.lrhalving = False
-        self.halvinginterval = 150
+        self.halvinginterval = 250
         dropout=0.0
         dropout_pool=0.0
         
@@ -343,87 +343,6 @@ class GraphConvPoolNN(torch.nn.Module):
             # return torch.nn.functional.softmax(x, dim=1)
 
 
-class GUNET(torch.nn.Module):
-    archName = "Graph UNET2"
-    def __init__(self, features, labels, device, pType=ClusterPooling):
-        super().__init__()
-
-        self.in_channels = features
-        self.out_channels = labels
-        self.device = device
-        self.hidden_channels = 128
-        if self.out_channels == 2:
-            self.out_channels = 1
-        self.depth = 3#Try bigger sizes? [1, 10] range makes sense for this problem
-        self.n_epochs = 500
-        self.num_classes = self.out_channels
-        
-        self.dropoutval = 0.1
-        self.pooldropoutval = 0.05
-        self.dropout = torch.nn.Dropout(p=self.dropoutval)
-
-        self.poolingType = pType
-
-        self.show_cluster_plots = True
-        self.shown = False
-        self.cf1 = [[] for _ in range(self.depth)]
-        #self.optim = torch.optim.Adam(self.mdl.parameters(), lr=0.00020)
-
-        self.down_convs = torch.nn.ModuleList()
-        self.pools = torch.nn.ModuleList()
-        self.down_convs.append(GCNConv(self.in_channels, self.hidden_channels, improved=True))
-        for i in range(self.depth):
-            self.pools.append(self.poolingType(self.hidden_channels, dropout=self.pooldropoutval))
-            self.down_convs.append(GCNConv(self.hidden_channels, self.hidden_channels, improved=True))
-
-        self.up_convs = torch.nn.ModuleList()
-        for i in range(self.depth-1):
-            self.up_convs.append(GCNConv(self.hidden_channels*2, self.hidden_channels, improved=True))
-        self.up_convs.append(GCNConv(self.hidden_channels*2+self.in_channels, self.out_channels, improved=True)) #+self.in_channels
-
-        self.reset_parameters()
-
-    def reset_parameters(self):
-        for conv in self.down_convs:
-            conv.reset_parameters()
-        for pool in self.pools:
-            pool.reset_parameters()
-        for conv in self.up_convs:
-            conv.reset_parameters()
-
-    def forward(self, data):
-        data = Data(x=data[0], edge_index=data[1].t().contiguous(), y=data[2])
-        x, edge_index = data.x, data.edge_index
-
-        x_in = torch.clone(x)
-
-        batch = torch.tensor(np.zeros(x.shape[0])).long().to(x.get_device()) #Make a batch tensor of np.zeros of length num nodes
-        memory = [] 
-        unpool_infos = []
-        for i in range(self.depth):
-            x = self.down_convs[i](x, edge_index)
-            if self.training:
-                x = self.dropout(x)
-            x = F.relu(x)
-            memory.append(x.clone())
-            x, edge_index, batch, unpool = self.pools[i](x, edge_index.long(), batch)
-            unpool_infos.append(unpool)            
-
-        memory[0] = torch.cat((memory[0], x_in), -1) #Concatenate the input features to the output of the first convolutional layer
-        x = self.down_convs[-1](x, edge_index)
-
-        for i in range(self.depth):
-            j = self.depth - 1 - i
-            x, edge_index, batch = self.pools[j].unpool(x, unpool_infos.pop())
-            x = torch.cat((memory.pop(), x), -1)
-            x = self.up_convs[i](x, edge_index)
-            if self.training and i < self.depth - 1:
-                x = self.dropout(x)
-            x = F.relu(x) if i < self.depth - 1 else x
-                    
-        return torch.sigmoid(x).flatten()
-
-
 class GCNModel(ModelInterface):
     def __init__(self, data, labels, seed=None, task_type_node=True, type=GraphConvPoolNN, pooltype=ClusterPooling):
         super().__init__(data, labels, seed)
@@ -431,8 +350,6 @@ class GCNModel(ModelInterface):
         self.pooltype = pooltype
         self.task_type_node = task_type_node
         self.clfName = self.architecture.archName
-        if self.architecture == GUNET:
-            self.clfName = self.clfName + "- ClusterPool"
         self.n_node_features = data[0][0].size(1)
         self.n_labels = len(labels)
 
@@ -440,20 +357,21 @@ class GCNModel(ModelInterface):
         "Function to fit the model to the data"
         if self.clf is None or replace_model is True:
             self.clf = self.architecture(self.n_node_features, self.task_type_node, self.n_labels, self.pooltype, self.device)
-            if self.architecture == GUNET:
-                self.clfName = self.clfName + " " + str(self.clf.poolingType)
             self.clf.to(self.device)
-
+            param_count = np.sum([params.size()[0] for params in self.clf.parameters()])
+            print(f"Created model with {param_count} parameters.")
         if hasattr(self.clf, "optimizer"):
             optimizer = self.clf.optimizer
         else:
             lr = 0.001
             if hasattr(self.clf, "learningrate"):
                 lr = self.clf.learningrate    
-            weight_decay = 0
+            weight_decay = 0.01
+            #weight_decay = 0
             if hasattr(self.clf, "weight_decay"):
                 weight_decay = self.clf.weight_decay
-            optimizer = torch.optim.Adam(self.clf.parameters(), lr=lr, weight_decay=weight_decay)
+            #optimizer = torch.optim.Adam(self.clf.parameters(), lr=lr, weight_decay=weight_decay)
+            optimizer = torch.optim.AdamW(self.clf.parameters(), lr=lr, weight_decay=weight_decay)
 
         self.clf.train()
         if self.bnry:
@@ -549,8 +467,6 @@ class GCNModel(ModelInterface):
                     if not self.bnry:
                         val_lab = torch.nn.functional.one_hot(val_lab, self.n_labels)
                     val_loss += loss_func(out, val_lab.float())
-                    if type(out) == tuple:
-                        out = out[0]
                     
                     if not self.bnry:
                         out = out.argmax(dim=1)

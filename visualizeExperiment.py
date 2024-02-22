@@ -11,7 +11,9 @@ sns.set_theme()
 #sns.set_style("darkgrid")
 printdata = False
 if len(sys.argv) == 1:
-    paths = [(x / "results_dictionary.pkl") for x in Path("results").iterdir() if x.is_dir() and not any([file for file in x.iterdir() if file.suffix == ".png"])]
+    [y for x in Path("results").iterdir() for y in x.iterdir()]
+    paths = [(y / "results_dictionary.pkl") for x in Path("results").iterdir() for y in x.iterdir()
+             if y.is_dir() and not any([file for file in y.iterdir() if file.suffix == ".png"])]
     paths = [x for x in paths if x.exists()]
     if len(paths) == 0:
         print("Could not auto detect any plots still to be made. Exiting.")
@@ -42,7 +44,9 @@ for filepath in paths:
     validation_loss_f, validation_acc_f = data["validation_loss_folds"], data["validation_acc_folds"]
     if "test_set_scores" in data.keys() and len(data["test_set_scores"]) > 0:
         test_data = data["test_set_scores"]
-        print(f"Test set score for this experiment:{np.mean(test_data)} +/- {np.std(test_data)}")
+        print(f"Test set score for {filepath.parent.name} experiment: {np.mean(test_data)} +/- {np.std(test_data)}")
+        print(test_data)
+        print()
     if printdata:
         print(data["description"])
         bve = [np.argmax(f) for f in data["validation_acc_folds"]]
