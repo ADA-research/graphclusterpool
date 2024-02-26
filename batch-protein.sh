@@ -2,7 +2,8 @@
 #SBATCH --mem-per-cpu=2000
 #SBATCH --job-name GCN-Protein
 #SBATCH --output=results/PROTEIN/slurm-%A_%a.out
-#SBATCH --array=0-99%50
+#SBATCH --array=0-99%100
+#SBATCH --partition=Kathleenhigh,Kathleenlow
 
 seed=$1
 date=$2

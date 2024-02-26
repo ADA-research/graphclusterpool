@@ -37,7 +37,12 @@ else:
 for filepath in paths:
     data = None
     with open(filepath, 'rb') as pkl:
-        data = pickle.load(pkl)
+        try:
+            data = pickle.load(pkl)
+        except Exception:
+            print(f"Couldn't load file {filepath} because of Exception:")
+            print(Exception)
+            continue
 
     clfName, poolLayer, widthString = data["description"][0], data["description"][1], data["description"][2]
     train_loss_f, train_acc_f = data["train_loss_folds"], data["train_acc_folds"]

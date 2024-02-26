@@ -61,7 +61,7 @@ def build_model(parser: argparse) -> ModelInterface:
             else:
                 print(f"ERROR NO NODE TASK FOR {parser.dataset}")
                 sys.exit(-1)
-    elif parser.dataset == "REDDIT-MULTI":
+    elif parser.dataset == "REDDIT-MULTI-12K":
         #This one does not have its own architecture yet
         type = nm.GraphConvPoolNN
         with open("Datasets/REDDIT-MULTI-12K/REDDIT-MULTI-12K.pkl", 'rb') as pkl:

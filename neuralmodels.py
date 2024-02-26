@@ -181,9 +181,9 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
         #self.learningrate = 0.00025
         self.learningrate = 0.0005
         self.weight_decay = 0
-        self.lrcosine = True
-        self.lrhalving = False
-        self.halvinginterval = 250
+        self.lrcosine = False
+        self.lrhalving = True
+        self.halvinginterval = 175
         dropout=0.0
         dropout_pool=0.0
         
