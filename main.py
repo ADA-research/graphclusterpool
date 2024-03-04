@@ -62,9 +62,20 @@ def build_model(parser: argparse) -> ModelInterface:
                 print(f"ERROR NO NODE TASK FOR {parser.dataset}")
                 sys.exit(-1)
     elif parser.dataset == "REDDIT-MULTI-12K":
-        #This one does not have its own architecture yet
-        type = nm.GraphConvPoolNN
+        type = nm.GraphConvPoolNNRedditMulti
         with open("Datasets/REDDIT-MULTI-12K/REDDIT-MULTI-12K.pkl", 'rb') as pkl:
+            prodict = pickle.load(pkl)
+            if args.task == "graph":
+                lbls = prodict["graph_label_tensor"]
+                data = [list(a) for a in zip(prodict["node_tensor_tuple"], prodict["edge_tensor_tuple"], lbls.tensor_split([i for i in range(1, lbls.size(0))]) )]
+                labels = prodict["graph_label_range"]
+            else:
+                print(f"ERROR NO NODE TASK FOR {parser.dataset}")
+                sys.exit(-1)
+    elif parser.dataset == "REDDIT-MULTI-5K":
+        # Does not have its own architecture (yet?)
+        type = nm.GraphConvPoolNNRedditMulti
+        with open("Datasets/REDDIT-MULTI-5K/REDDIT-MULTI-5K.pkl", 'rb') as pkl:
             prodict = pickle.load(pkl)
             if args.task == "graph":
                 lbls = prodict["graph_label_tensor"]

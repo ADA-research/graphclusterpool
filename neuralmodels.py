@@ -22,13 +22,13 @@ from ModelInterface import ModelInterface
 * Dropout can be 0.0, 0.05 or 0.1 but higher (0.4-0.5) also shows some potential
 * Activation function for pooling works best with softmax (tried softmax, logsoftmax, sigmoid and tanh)
 * Architecture is the smallest possible in number of layers to be able to memorise the data set
-* The network is really good at overfitting, not so good at regularization 
+* The network is really good at overfitting, not so good at regularization. This is possibly due to the small data set size.
 """
 class GraphConvPoolNNProtein(torch.nn.Module):
     archName = "GCN Pooling for PROTEIN"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
         super().__init__()
-        self.n_epochs = 500
+        self.n_epochs = 300
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = PoolLayer
@@ -37,7 +37,8 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         self.learningrate = 0.001
         self.weight_decay = 0
         self.lrhalving = True
-        dropout=0.5
+        self.halvinginterval = 100
+        dropout=0.3
         dropout_pool=dropout
         self.task_type_node = task_type_node
         if self.num_classes == 2: #binary
@@ -257,8 +258,94 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
             # return torch.nn.functional.softmax(x, dim=1)
 
 
-class GraphConvPoolNN(torch.nn.Module):
+class GraphConvPoolNNRedditMulti(torch.nn.Module):
     archName = "GCN REDDIT-MULTI"
+    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
+        super().__init__()
+        self.n_epochs = 200
+        self.num_classes = num_classes
+        self.device = device
+        self.poolLayer = PoolLayer
+        #self.hid_channel = 128
+        self.hid_channel = 256
+        self.batch_size = 1
+        self.learningrate = 0.00025
+        self.lrhalving = True
+        self.halvinginterval = 55
+        dropout=0.025
+        dropout_pool=dropout
+        self.task_type_node = task_type_node
+        if self.num_classes == 2: #binary
+            self.num_classes = 1
+
+        self.dropout = torch.nn.Dropout(p=dropout)
+
+        self.conv1 = GCNConv(node_features, self.hid_channel)
+        self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
+
+        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
+        self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
+
+        self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
+
+        self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
+        self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
+
+    def forward(self, data):
+        batch = data[3]
+        data = Data(x=data[0], edge_index=data[1].t().contiguous())
+
+        x, edge_index = data.x, data.edge_index
+        
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        x = self.conv2(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
+
+        x = self.conv3(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        x = self.conv4(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
+
+        x = self.conv5(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        if self.task_type_node: #Dealing with node classification
+            x, edge_index, batch = self.pool2.unpool(x, unpool2)
+            x, edge_index, batch = self.pool1.unpool(x, unpool1)
+        else: #dealing with graph classification
+            x = global_mean_pool(x, batch)
+            #Try global sum pool
+            #Maybe try global max pool maar dat verpest misschien de gradients
+
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        
+        
+        if self.num_classes == 1: #binary
+            x = torch.sigmoid(x)
+            return torch.flatten(x)
+        else:
+            return torch.nn.functional.log_softmax(x, dim=1)
+
+        
+class GraphConvPoolNN(torch.nn.Module):
+    archName = "GCN GENERAL"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
         super().__init__()
         self.n_epochs = 50
@@ -392,11 +479,11 @@ class GCNModel(ModelInterface):
         if hasattr(self.clf, "lrhalving"):
             lrhalving = self.clf.lrhalving
             if hasattr(self.clf, "halvinginterval"):
-                halvinginterval = self.clf.halvinginterval 
+                halvinginterval = self.clf.halvinginterval
         if hasattr(self.clf, "lrcosine") and self.clf.lrcosine == True:
             #torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.clf.n_epochs + 1)
             torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=2*(self.clf.n_epochs + 1))
-        
+
         best_mod = copy.deepcopy(self.clf.state_dict())
         for epoch in range(1, self.clf.n_epochs + 1):
             tot_lss = 0.0   
@@ -447,8 +534,7 @@ class GCNModel(ModelInterface):
                 break
             
             # From Diehl paper
-            if lrhalving and self.clf.lrhalving == True and epoch > 0:
-                
+            if lrhalving and epoch > 0:
                 if epoch % halvinginterval == 0:
                     for g in optimizer.param_groups:
                         if verbose or True:
