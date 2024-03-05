@@ -3,8 +3,6 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as F
-#from torch_scatter import scatter_add
-#from torch_scatter import scatter_mean
 from torch_sparse import coalesce
 from torch_geometric.utils import softmax
 
@@ -120,10 +118,9 @@ class ClusterPooling(torch.nn.Module):
     The cluster pooling operator from the paper `"Paper name here" <paper url here>`
 
     In short, a score is computed for each edge.
-    Edges are contracted according to their scores. Based on the selected edges,
-    graph components are calculated and contracted through node coalescing.
-    The node features in the components are combined by adding them together, where each
-    node contributes 1/n of its features to the cluster.
+    Based on the selected edges, graph clusters are calculated and compressed to one
+    node using an injective aggregation function (sum). Edges are remapped based on
+    the node created by each cluster and the original edges.
     
     Args:
         in_channels (int): Size of each input sample.
@@ -135,9 +132,9 @@ class ClusterPooling(torch.nn.Module):
             nodes :obj:`num_nodes`, and produces a new tensor of the same size
             as :obj:`raw_edge_score` describing normalized edge scores.
             Included functions are
-            :func:`EdgePooling.compute_edge_score_softmax`,
-            :func:`EdgePooling.compute_edge_score_tanh`, and
-            :func:`EdgePooling.compute_edge_score_sigmoid`.
+            :func:`ClusterPooling.compute_edge_score_logsoftmax`,
+            :func:`ClusterPooling.compute_edge_score_tanh`, and
+            :func:`ClusterPooling.compute_edge_score_sigmoid`.
             (default: :func:`EdgePooling.compute_edge_score_softmax`)
         dropout (float, optional): The probability with
             which to drop edge scores during training. (default: :obj:`0`)
@@ -145,19 +142,18 @@ class ClusterPooling(torch.nn.Module):
             computed edge score. Adding this greatly helps with unpool
             stability. (default: :obj:`0.5`)
     """
-
+    # The unpool description is rather large and could perhaps be downsized
     unpool_description = namedtuple(
         "UnpoolDescription",
         ["x", "edge_index", "cluster", "batch", "new_edge_score", "old_edge_score", "selected_edges", "cluster_map", "edge_mask"])
 
     def __init__(self, in_channels, edge_score_method=None, dropout=0.0,
-                 add_to_edge_score=0.5, threshold=0.5):
+                 threshold=0.5):
         super().__init__()
         self.in_channels = in_channels
         if edge_score_method is None:
             edge_score_method = self.compute_edge_score_tanh
         self.compute_edge_score = edge_score_method
-        self.add_to_edge_score = add_to_edge_score
         self.threshhold = threshold
         self.dropout = dropout
 
@@ -169,19 +165,15 @@ class ClusterPooling(torch.nn.Module):
         self.lin.reset_parameters()
 
     @staticmethod
-    def compute_edge_score_softmax(raw_edge_score, edge_index, num_nodes):
-        return softmax(raw_edge_score, edge_index[1], num_nodes=num_nodes)
-
-    @staticmethod
-    def compute_edge_score_tanh(raw_edge_score, edge_index, num_nodes):
+    def compute_edge_score_tanh(raw_edge_score):
         return torch.tanh(raw_edge_score)
 
     @staticmethod
-    def compute_edge_score_sigmoid(raw_edge_score, edge_index, num_nodes):
+    def compute_edge_score_sigmoid(raw_edge_score):
         return torch.sigmoid(raw_edge_score)
 
     @staticmethod
-    def compute_edge_score_logsoftmax(raw_edge_score, edge_index, num_nodes):
+    def compute_edge_score_logsoftmax(raw_edge_score):
         return torch.nn.functional.log_softmax(raw_edge_score, dim=0)
 
     def forward(self, x, edge_index, batch):
@@ -209,8 +201,7 @@ class ClusterPooling(torch.nn.Module):
         e = self.lin(e).view(-1) #Apply linear NN on the edge "features", view(-1) to reshape to 1 dimension
         e = F.dropout(e, p=self.dropout, training=self.training)
 
-        e = self.compute_edge_score(e, edge_index, x.size(0)) 
-        #e = e + self.add_to_edge_score
+        e = self.compute_edge_score(e)
         x, edge_index, batch, unpool_info = self.__merge_edges__(
             x, edge_index, batch, e)
 
