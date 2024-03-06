@@ -256,7 +256,6 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
             return torch.nn.functional.log_softmax(x, dim=1)
             # return torch.nn.functional.softmax(x, dim=1)
 
-
 class GraphConvPoolNNRedditMulti(torch.nn.Module):
     archName = "GCN REDDIT-MULTI"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
@@ -349,12 +348,13 @@ class GraphConvPoolNNRedditMulti5k(torch.nn.Module):
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = PoolLayer
-        self.hid_channel = 128
+        self.hid_channel = 256
         self.batch_size = 1
         self.learningrate = 0.0005
         self.lrhalving = True
+        #self.lrcosine = False
         self.halvinginterval = 60
-        dropout=0.025
+        dropout=0.0
         dropout_pool=dropout
         self.task_type_node = task_type_node
         if self.num_classes == 2: #binary
@@ -363,16 +363,14 @@ class GraphConvPoolNNRedditMulti5k(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout)
 
         self.conv1 = GCNConv(node_features, self.hid_channel)
-        
+        self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
         self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
 
-        self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
+        self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
+        self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
         self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
 
-        self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
-        self.pool3 = PoolLayer(self.hid_channel, dropout=dropout_pool)
-
-        self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
+        self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
@@ -399,20 +397,17 @@ class GraphConvPoolNNRedditMulti5k(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
-
         x = self.conv4(x, edge_index)
         x = F.relu(x)
         x = self.dropout(x)
 
-        x, edge_index, batch, unpool3 = self.pool3(x, edge_index.long(), batch)
+        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
 
-        #x = self.conv5(x, edge_index)
-        #x = F.relu(x)
-        #x = self.dropout(x)
+        x = self.conv5(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
 
         if self.task_type_node: #Dealing with node classification
-            x, edge_index, batch = self.pool3.unpool(x, unpool3)
             x, edge_index, batch = self.pool2.unpool(x, unpool2)
             x, edge_index, batch = self.pool1.unpool(x, unpool1)
         else: #dealing with graph classification
