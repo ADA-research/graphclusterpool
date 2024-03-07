@@ -85,7 +85,7 @@ def build_model(parser: argparse) -> ModelInterface:
                 sys.exit(-1)
     elif parser.dataset == "IMDB-BINARY":
         #This one uses reddit binary for now but should get its own
-        type = nm.GraphConvPoolNNRedditBinary
+        type = nm.GraphConvPoolNNIMDBBinary
         with open("Datasets/IMDB-BINARY/IMDB-BINARY.pkl", 'rb') as pkl:
             prodict = pickle.load(pkl)
             if args.task == "graph":
@@ -97,7 +97,7 @@ def build_model(parser: argparse) -> ModelInterface:
                 sys.exit(-1)
     elif parser.dataset == "IMDB-MULTI":
         #This one does not have its own architecture yet
-        type = nm.GraphConvPoolNNRedditMulti
+        type = nm.GraphConvPoolNNIMDBMulti
         with open("Datasets/IMDB-MULTI/IMDB-MULTI.pkl", 'rb') as pkl:
             prodict = pickle.load(pkl)
             if args.task == "graph":
