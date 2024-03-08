@@ -96,7 +96,6 @@ def build_model(parser: argparse) -> ModelInterface:
                 print(f"ERROR NO NODE TASK FOR {parser.dataset}")
                 sys.exit(-1)
     elif parser.dataset == "IMDB-MULTI":
-        #This one does not have its own architecture yet
         type = nm.GraphConvPoolNNIMDBMulti
         with open("Datasets/IMDB-MULTI/IMDB-MULTI.pkl", 'rb') as pkl:
             prodict = pickle.load(pkl)
@@ -108,8 +107,7 @@ def build_model(parser: argparse) -> ModelInterface:
                 print(f"ERROR NO NODE TASK FOR {parser.dataset}")
                 sys.exit(-1)
     elif parser.dataset == "NCI1":
-        #This one does not have its own architecture yet
-        type = nm.GraphConvPoolNN
+        type = nm.GraphConvPoolNNNCI1
         with open("Datasets/NCI1/NCI1.pkl", 'rb') as pkl:
             prodict = pickle.load(pkl)
             if args.task == "graph":

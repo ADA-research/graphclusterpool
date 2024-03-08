@@ -2,12 +2,12 @@
 #SBATCH --mem-per-cpu=3000
 #SBATCH --job-name GCN-NCI1
 #SBATCH --output=results/NCI1/slurm-%A_%a.out
-#SBATCH --array=0-2%10
+#SBATCH --array=0-9%10
 #SBATCH --partition=Kathleenhigh,Kathleenlow
 
 seed=$1
 date=$2
-nfolds=3
+nfolds=10
 dataset="NCI1"
 outputdir="results/${dataset}/GCN_${dataset}.${date}/"
 mkdir $outputdir > /dev/null

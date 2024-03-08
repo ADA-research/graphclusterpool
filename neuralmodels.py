@@ -6,7 +6,7 @@ import sklearn
 
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv
+from torch_geometric.nn import GCNConv, GINConv
 from torch_geometric.nn import global_mean_pool
 from cluster_pool import ClusterPooling
 
@@ -490,16 +490,16 @@ class GraphConvPoolNNIMDBMulti(torch.nn.Module):
     archName = "GCN IMDB-Multi"
     def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
         super().__init__()
-        self.n_epochs = 250
+        self.n_epochs = 100
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = PoolLayer
-        self.hid_channel = 32
+        self.hid_channel = 256
         self.batch_size = 1
-        self.learningrate = 0.0007
+        self.learningrate = 0.001
         self.lrhalving = True
-        self.halvinginterval = 60
-        dropout=0.0
+        self.halvinginterval = 45
+        dropout=0.00
         dropout_pool=dropout
         self.task_type_node = task_type_node
         if self.num_classes == 2: #binary
@@ -544,7 +544,92 @@ class GraphConvPoolNNIMDBMulti(torch.nn.Module):
         else:
             return torch.nn.functional.log_softmax(x, dim=1)
 
+class GraphConvPoolNNNCI1(torch.nn.Module):
+    archName = "GCN NCI1"
+    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
+        super().__init__()
+        self.n_epochs = 200
+        self.num_classes = num_classes
+        self.device = device
+        self.poolLayer = PoolLayer
+        self.hid_channel = 32
+        self.batch_size = 1
+        self.learningrate = 0.01
+        self.lrhalving = True
+        self.halvinginterval = 50
+        
+        if self.num_classes == 2: #binary
+            self.num_classes = 1
 
+        self.task_type_node = task_type_node
+
+        dropout=0.0
+        dropout_pool=0.0
+        self.dropout = torch.nn.Dropout(p=dropout)
+        #self.conv1 = GCNConv(node_features, self.hid_channel)
+        self.conv1 = GINConv(torch.nn.Linear(node_features, self.hid_channel))
+        #self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
+        self.conv1 = GINConv(torch.nn.Linear(self.hid_channel, self.hid_channel))
+        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        
+        self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
+        self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
+        self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
+
+        self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
+        self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
+
+    def forward(self, data):
+        batch = data[3]
+        data = Data(x=data[0], edge_index=data[1].t().contiguous())
+
+        x, edge_index = data.x, data.edge_index
+        
+        x = self.conv1(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        x = self.conv2(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
+
+        x = self.conv3(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        x = self.conv4(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
+
+        x = self.conv5(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        if self.task_type_node: #Dealing with node classification
+            x, edge_index, batch = self.pool2.unpool(x, unpool2)
+            x, edge_index, batch = self.pool1.unpool(x, unpool1)
+        else: #dealing with graph classification
+            x = global_mean_pool(x, batch)
+            #Try global sum pool
+            #Maybe try global max pool maar dat verpest misschien de gradients
+
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        
+        
+        if self.num_classes == 1: #binary
+            x = torch.sigmoid(x)
+            return torch.flatten(x)
+        else:
+            return torch.nn.functional.log_softmax(x, dim=1)
+            # return torch.nn.functional.softmax(x, dim=1)
 
         
 class GraphConvPoolNN(torch.nn.Module):

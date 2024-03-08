@@ -2,12 +2,12 @@
 #SBATCH --mem-per-cpu=3000
 #SBATCH --job-name GCN-IMDBM
 #SBATCH --output=results/IMDB-MULTI/slurm-%A_%a.out
-#SBATCH --array=0-9%10
+#SBATCH --array=0-99%100
 #SBATCH --partition=Kathleenhigh,Kathleenlow
 
 seed=$1
 date=$2
-nfolds=10
+nfolds=100
 dataset="IMDB-MULTI"
 outputdir="results/${dataset}/GCN_${dataset}.${date}/"
 mkdir $outputdir > /dev/null
