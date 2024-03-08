@@ -569,7 +569,7 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         #self.conv1 = GCNConv(node_features, self.hid_channel)
         self.conv1 = GINConv(torch.nn.Linear(node_features, self.hid_channel))
         #self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
-        self.conv1 = GINConv(torch.nn.Linear(self.hid_channel, self.hid_channel))
+        self.conv2 = GINConv(torch.nn.Linear(self.hid_channel, self.hid_channel))
         self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
         
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
