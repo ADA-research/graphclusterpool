@@ -25,7 +25,7 @@ def parser_function() -> argparse.ArgumentParser:
 def build_model(parser: argparse) -> ModelInterface:
     data = None
     labels = None
-    type = nm.GraphConvPoolNN
+    type = None
     task_type_node = True
     pooltype = ClusterPooling
     if parser.dataset == "PROTEIN":
