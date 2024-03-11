@@ -547,16 +547,16 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
     archName = "GCN NCI1"
     def __init__(self, node_features, task_type_node, num_classes, datset_name, device):
         super().__init__()
-        self.n_epochs = 2000
+        self.n_epochs = 400
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = ClusterPooling
         self.hid_channel = 32
         self.batch_size = 1
-        self.learningrate = 0.01
+        self.learningrate = 0.001
         self.lrhalving = False
         self.halvinginterval = 50
-        
+
         if self.num_classes == 2: #binary
             self.num_classes = 1
 
@@ -566,18 +566,17 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         dropout_pool=0.0
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
-        #self.conv1 = GINConv(torch.nn.Linear(node_features, self.hid_channel))
+        
         self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
-        #self.conv2 = GINConv(torch.nn.Linear(self.hid_channel, self.hid_channel))
-        #self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
+        
+        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
-        #self.conv3 = GINConv(torch.nn.Linear(self.hid_channel, self.hid_channel))
+        
         self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
-        #self.conv4 = GINConv(torch.nn.Linear(self.hid_channel, self.hid_channel))
-        #self.pool2 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
+        
+        self.pool2 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
-        #self.conv5 = GINConv(torch.nn.Linear(self.hid_channel, self.hid_channel))
 
         self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
@@ -595,7 +594,7 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-        #x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
+        x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
 
         x = self.conv3(x, edge_index)
         x = F.relu(x)
@@ -605,7 +604,7 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-        #x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
+        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
 
         x = self.conv5(x, edge_index)
         x = F.relu(x)
