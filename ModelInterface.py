@@ -136,7 +136,7 @@ class ModelInterface:
                 Path(filepath).parent.mkdir(parents=True)
             
             with Path(filepath).open('wb') as fileobj:
-                resdict = {"description": [self.clfName, str(self.clf.poolLayer), f"Layer width {self.clf.hid_channel}", folds, self.randomSeed],
+                resdict = {"description": [self.clfName, f"Layer width {self.clf.hid_channel}", folds, self.randomSeed],
                         "train_loss_folds": [],
                         "train_acc_folds": [],
                         "validation_loss_folds": [],

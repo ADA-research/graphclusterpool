@@ -232,9 +232,9 @@ class ClusterPooling(torch.nn.Module):
         cluster = cluster.to(x.device)
         new_edge = new_edge.to(x.device)
 
-        #We compute the new features as the average of the cluster's nodes' features
+        #We compute the new features as the sum of the cluster's nodes' features, multiplied by the edge score
         new_edge_score = edge_score[sel_edge] #Get the scores that come into play
-        node_reps = (x[new_edge[0]] + x[new_edge[1]]) #/2 (used to dived by two)
+        node_reps = (x[new_edge[0]] + x[new_edge[1]])
         node_reps = node_reps * new_edge_score.view(-1,1)
         new_x = torch.clone(x)
         
@@ -246,7 +246,6 @@ class ClusterPooling(torch.nn.Module):
         new_x = torch.index_add(new_x, dim=0, index=new_edge[0], source=node_reps)
         new_x = torch.index_add(new_x, dim=0, index=new_edge[1], source=node_reps)
         new_x[trans_mask] = new_x[trans_mask] / trans_factor.view(-1,1) #Some nodes get index_added more than once, so divide by that number
-        #new_x = scatter_mean(new_x, cluster, dim=0, dim_size=i)
         new_x = scatter_add(new_x, cluster, dim=0, dim_size=i) #This seems to work much better in terms of backprop
 
         N = new_x.size(0)
