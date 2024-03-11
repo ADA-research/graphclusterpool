@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 import numpy as np
-import math
 from sklearn import metrics
 
 "Model Interface, few base definitions that each model needs"
@@ -18,16 +17,15 @@ class ModelInterface:
     "[1]: Edge tensor"
     "[2]: Node label tensor, containing the class of each node"
 
-    def __init__(self, data, labels, seed = None):
+    def __init__(self, data_name, data, labels, seed = None):
         "Receives data from controller"
         #self.test = [e for i,e in enumerate(data) if i in test_set_idx]
+        self.dataset_name = data_name
         self.data = data
         self.labels = labels
         self.n_labels = len(labels)
         self.bnry = (self.n_labels == 2)
-        self.MetricName = "F1-Score" if self.bnry else "Accuracy"
-        
-        
+
         self.clf = None
         self.clfName = "ModelInterface"
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

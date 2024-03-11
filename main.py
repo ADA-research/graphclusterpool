@@ -2,7 +2,7 @@ import argparse
 from ModelInterface import ModelInterface
 import neuralmodels as nm
 import pickle
-from torch_geometric.nn.pool import EdgePooling
+import rerundiehl as rrd
 from cluster_pool import ClusterPooling
 
 import sys
@@ -20,6 +20,7 @@ def parser_function() -> argparse.ArgumentParser:
     parser.add_argument("--seed", type=int, help="Seed of the run")
     parser.add_argument("--filename", type=str, help="Filename to use")
     parser.add_argument("--foldindex", type=int, help="The index of the fold to run")
+    parser.add_argument("--rerun", type=str, help="Which paper we want to reproduce")
     return parser
 
 def build_model(parser: argparse) -> ModelInterface:
@@ -120,10 +121,12 @@ def build_model(parser: argparse) -> ModelInterface:
     else:
         print(f"ERROR: Data set {parser.dataset} not recognized. Exiting.")
         sys.exit(-1)
-
+    
     if parser.task == "graph":
         task_type_node = False
-    return nm.GCNModel(data=data, labels=labels, task_type_node=task_type_node, seed=args.seed, type=type, pooltype=pooltype)
+    if parser.rerun == "diehl":
+        nm = rrd.GCNDiehl
+    return nm.GCNModel(data_name=parser.dataset, data=data, labels=labels, task_type_node=task_type_node, seed=args.seed, type=type, pooltype=pooltype)
 
 if __name__ == "__main__":
     # Define command line arguments

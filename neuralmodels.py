@@ -719,8 +719,8 @@ class GraphConvPoolNN(torch.nn.Module):
 
 
 class GCNModel(ModelInterface):
-    def __init__(self, data, labels, seed=None, task_type_node=True, type=GraphConvPoolNN, pooltype=ClusterPooling):
-        super().__init__(data, labels, seed)
+    def __init__(self, data_name, data, labels, seed=None, task_type_node=True, type=GraphConvPoolNN, pooltype=ClusterPooling):
+        super().__init__(data_name, data, labels, seed)
         self.architecture = type
         self.pooltype = pooltype
         self.task_type_node = task_type_node
