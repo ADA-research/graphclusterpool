@@ -123,10 +123,10 @@ def build_model(parser: argparse) -> ModelInterface:
     
     if parser.task == "graph":
         task_type_node = False
-    print(parser.rerun)
+
     if parser.rerun == "diehl":
         type = rrd.GCNDiehl
-        print("BING!")
+
     return nm.GCNModel(data_name=parser.dataset, data=data, labels=labels, task_type_node=task_type_node, seed=args.seed, type=type, pooltype=pooltype)
 
 if __name__ == "__main__":
