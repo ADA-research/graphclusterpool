@@ -554,7 +554,7 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         self.hid_channel = 32
         self.batch_size = 1
         self.learningrate = 0.001
-        self.lrhalving = False
+        self.lrhalving = True
         self.halvinginterval = 50
 
         if self.num_classes == 2: #binary
