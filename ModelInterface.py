@@ -4,6 +4,7 @@ import torch
 import pickle
 from datetime import datetime
 import sys
+import os
 from pathlib import Path
 
 import numpy as np
@@ -131,9 +132,8 @@ class ModelInterface:
         return self.y_valid, self.y_valid_dist
     
     def save_results(self, filepath, folds, train_loss_f, train_acc_f, validation_loss_f, validation_acc_f, test_set_scores, model):
-        if not Path(filepath).exists(): # Create the empty-ish dict
-            if not Path(filepath).parent.exists():
-                Path(filepath).parent.mkdir(parents=True)
+        if not Path(filepath).exists() or os.stat(filepath).st_size == 0: # Create the empty-ish dict
+            Path(filepath).parent.mkdir(parents=True, exist_ok=True)
             
             with Path(filepath).open('wb') as fileobj:
                 resdict = {"description": [self.clfName, f"Layer width {self.clf.hid_channel}", folds, self.randomSeed],

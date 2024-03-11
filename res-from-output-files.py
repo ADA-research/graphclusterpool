@@ -15,3 +15,5 @@ for file in files:
         res.append(float(line.split(" ")[-1]))
 
 print(f"Result: {np.mean(res)} +/ {np.std(res)}")
+res.sort()
+print(res)
