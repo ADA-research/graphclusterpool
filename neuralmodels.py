@@ -45,7 +45,7 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
-        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool, edge_score_method=ClusterPooling.compute_edge_score_sigmoid, threshold=0.5)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
 
