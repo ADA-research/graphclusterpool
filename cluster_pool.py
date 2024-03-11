@@ -148,7 +148,7 @@ class ClusterPooling(torch.nn.Module):
         ["x", "edge_index", "cluster", "batch", "new_edge_score", "old_edge_score", "selected_edges", "cluster_map", "edge_mask"])
 
     def __init__(self, in_channels, edge_score_method=None, dropout=0.0,
-                 threshold=0.5):
+                 threshold=0.0):
         super().__init__()
         self.in_channels = in_channels
         if edge_score_method is None:
@@ -176,7 +176,7 @@ class ClusterPooling(torch.nn.Module):
     def compute_edge_score_logsoftmax(raw_edge_score):
         return torch.nn.functional.log_softmax(raw_edge_score, dim=0)
 
-    def forward(self, x, edge_index, batch):
+    def forward(self, x, edge_index, batch, directed=False):
         r"""Forward computation which computes the raw edge score, normalizes
         it, and merges the edges.
 
@@ -200,6 +200,13 @@ class ClusterPooling(torch.nn.Module):
         e = torch.cat([x[edge_index[0]], x[edge_index[1]]], dim=-1) #Concatenates the source feature with the target features
         e = self.lin(e).view(-1) #Apply linear NN on the edge "features", view(-1) to reshape to 1 dimension
         e = F.dropout(e, p=self.dropout, training=self.training)
+
+        # In case that we can treat the graph as undirected, evaluate the edge both ways
+        if not directed:
+            e_rev = torch.cat([x[edge_index[1]], x[edge_index[0]]], dim=-1)
+            e_rev = self.lin(e_rev).view(-1)
+            e_rev = F.dropout(e_rev, p=self.dropout, training=self.training)
+            e = e + e_rev #Add the raw scores together
 
         e = self.compute_edge_score(e)
         x, edge_index, batch, unpool_info = self.__merge_edges__(

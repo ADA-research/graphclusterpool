@@ -37,7 +37,7 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         self.weight_decay = 0
         self.lrhalving = True
         self.halvinginterval = 100
-        dropout=0.3
+        dropout=0.4
         dropout_pool=dropout
         self.task_type_node = task_type_node
         if self.num_classes == 2: #binary
@@ -45,8 +45,7 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
-        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool,
-                               edge_score_method=ClusterPooling.compute_edge_score_softmax)
+        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
 
@@ -562,8 +561,8 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
 
         self.task_type_node = task_type_node
 
-        dropout=0.0
-        dropout_pool=0.0
+        dropout=0.2
+        dropout_pool=dropout
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
         

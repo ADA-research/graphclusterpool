@@ -29,7 +29,7 @@ class GCNDiehl(torch.nn.Module):
 
         self.task_type_node = task_type_node
 
-        dropout=0.2 #The authors say they use drop out but not what rate, so we use the default value of 0.5? As suggested by the dropout paper. set to 0.2 as i think 0.5 is too much
+        dropout=0.5 #The authors say they use drop out but not what rate, so we use the default value of 0.5? As suggested by the dropout paper. set to 0.2 as i think 0.5 is too much
         dropout_pool=dropout
         self.dropout = torch.nn.Dropout(p=dropout)
 

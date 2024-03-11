@@ -48,7 +48,7 @@ for filepath in paths:
     validation_loss_f, validation_acc_f = data["validation_loss_folds"], data["validation_acc_folds"]
     if "test_set_scores" in data.keys() and len(data["test_set_scores"]) > 0:
         test_data = data["test_set_scores"]
-        print(f"Test set score for {filepath.parent.name} experiment: {np.mean(test_data)} +/- {np.std(test_data)}")
+        print(f"Test set score for {filepath.parent.name} experiment: {np.mean(test_data)} +/- {np.std(test_data)} [Out of {len(test_data)} folds]")
         print(test_data)
         print()
     if printdata:
