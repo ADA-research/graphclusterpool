@@ -144,19 +144,21 @@ class ModelInterface:
                         "test_set_scores": [],
                         "models": []}
                 pickle.dump(resdict, fileobj)
-
-        resdict = {}
-        with open(filepath, 'rb+') as handle:
-            resdict = pickle.load(handle)
-            resdict["train_loss_folds"].append(train_loss_f)
-            resdict["train_acc_folds"].append(train_acc_f)
-            resdict["validation_loss_folds"].append(validation_loss_f)
-            resdict["validation_acc_folds"].append(validation_acc_f)
-            if test_set_scores is not None:
-                resdict["test_set_scores"].append(test_set_scores)
-            resdict["models"].append(model)
-        with open(filepath, 'wb') as handle:
-            pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        try:
+            resdict = {}
+            with open(filepath, 'rb+') as handle:
+                resdict = pickle.load(handle)
+                resdict["train_loss_folds"].append(train_loss_f)
+                resdict["train_acc_folds"].append(train_acc_f)
+                resdict["validation_loss_folds"].append(validation_loss_f)
+                resdict["validation_acc_folds"].append(validation_acc_f)
+                if test_set_scores is not None:
+                    resdict["test_set_scores"].append(test_set_scores)
+                resdict["models"].append(model)
+            with open(filepath, 'wb') as handle:
+                pickle.dump(resdict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        except Exception as err:
+            print(f"Excpetion during saving: {err}")
 
     def run_folds(self, folds, display=True, contExperimentFile=None, seed=None, iteration_id=None):
         "Function that runs train and test for models"

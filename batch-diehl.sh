@@ -8,14 +8,14 @@
 dataset=$1
 seed=$2
 date=$3
-
-outputdir="results/${dataset}/GCN_${dataset}.${date}/"
+nfolds=100
+outputdir="results/Rerun/Diehl/${dataset}/GCN_${dataset}.${date}/"
 mkdir $outputdir > /dev/null
 filename="${outputdir}results_dictionary.pkl"
 
 params=()
 for ((i=0; i<$nfolds; i++)) do
-    params[i]="--task graph --model GCN --dataset ${dataset} --filename ${filename} --seed ${seed} --foldindex ${i} --rerun diehl"
+    params[i]="--task graph --dataset ${dataset} --filename ${filename} --seed ${seed} --foldindex ${i} --rerun diehl"
 done
 
 srun python main.py ${params[$SLURM_ARRAY_TASK_ID]}

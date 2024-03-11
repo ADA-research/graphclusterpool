@@ -15,7 +15,7 @@ filename="${outputdir}results_dictionary.pkl"
 
 params=()
 for ((i=0; i<$nfolds; i++)) do
-    params[i]="--task graph --model GCN --dataset ${dataset} --filename ${filename} --seed ${seed} --foldindex ${i}"
+    params[i]="--task graph --dataset ${dataset} --filename ${filename} --seed ${seed} --foldindex ${i}"
 done
 
 srun python main.py ${params[$SLURM_ARRAY_TASK_ID]}

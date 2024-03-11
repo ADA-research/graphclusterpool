@@ -13,7 +13,6 @@ def parser_function() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=("Runs selected Graph Neural Network on specified task for specified data set"),
         )
-    parser.add_argument("--model", default="GCN", type=str, help="Model type. Default: GCN. Available: GCN-Diehl, GUNET, GUNET-Diehl")
     parser.add_argument("--dataset", default="PROTEIN", type=str, help="Data set name. Default: PROTEIN. Available: ")
     parser.add_argument("--task", default="node", type=str, help="Classification task for the model. Default: node. Available: graph")
     parser.add_argument("--nodisplay", action=argparse.BooleanOptionalAction, help="Don't print results to the terminal and show no graphs at the end.")
@@ -124,8 +123,10 @@ def build_model(parser: argparse) -> ModelInterface:
     
     if parser.task == "graph":
         task_type_node = False
+    print(parser.rerun)
     if parser.rerun == "diehl":
-        nm = rrd.GCNDiehl
+        type = rrd.GCNDiehl
+        print("BING!")
     return nm.GCNModel(data_name=parser.dataset, data=data, labels=labels, task_type_node=task_type_node, seed=args.seed, type=type, pooltype=pooltype)
 
 if __name__ == "__main__":

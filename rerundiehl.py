@@ -9,27 +9,27 @@ from torch_geometric.nn.pool import EdgePooling
 
 class GCNDiehl(torch.nn.Module):
     archName = "GCN DIEHL"
-    def __init__(self, node_features, task_type_node, num_classes, device):
+    def __init__(self, node_features, task_type_node, num_classes, dataset_name, device):
         super().__init__()
         self.n_epochs = 200
         self.num_classes = num_classes
         self.device = device
         self.hid_channel = 128
-        if self.dataset_name == "PROTEINS":
+        if dataset_name == "PROTEINS":
             self.hid_channel = 64
         
         self.batch_size = 128
         self.learningrate = 0.01
         self.lrhalving = True
         self.halvinginterval = 50
-        self.optimizer = torch.optim.Adam(self.clf.parameters(), lr=self.learningrate)
+        self.optimizertype = torch.optim.Adam
         
         if self.num_classes == 2: #binary
             self.num_classes = 1
 
         self.task_type_node = task_type_node
 
-        dropout=0.025 #The authors say they use drop out but not what rate
+        dropout=0.2 #The authors say they use drop out but not what rate, so we use the default value of 0.5? As suggested by the dropout paper. set to 0.2 as i think 0.5 is too much
         dropout_pool=dropout
         self.dropout = torch.nn.Dropout(p=dropout)
 

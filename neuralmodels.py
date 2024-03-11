@@ -25,12 +25,12 @@ from ModelInterface import ModelInterface
 """
 class GraphConvPoolNNProtein(torch.nn.Module):
     archName = "GCN Pooling for PROTEIN"
-    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
+    def __init__(self, node_features, task_type_node, num_classes, dataset_name, device):
         super().__init__()
         self.n_epochs = 300
         self.num_classes = num_classes
         self.device = device
-        self.poolLayer = PoolLayer
+        self.poolLayer = ClusterPooling
         self.hid_channel = 32
         self.batch_size = 1
         self.learningrate = 0.001
@@ -45,7 +45,7 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
-        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool,
+        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool,
                                edge_score_method=ClusterPooling.compute_edge_score_softmax)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
@@ -81,16 +81,15 @@ class GraphConvPoolNNProtein(torch.nn.Module):
         else:
             return torch.nn.functional.log_softmax(x, dim=1)
 
-
 class GraphConvPoolNNRedditBinary(torch.nn.Module):
     archName = "GCN Pooling for REDDIT-BINARY"
-    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
+    def __init__(self, node_features, task_type_node, num_classes, dataset_name, device):
         super().__init__()
         self.n_epochs = 200
         self.num_classes = num_classes
         self.device = device
         self.task_type_node = task_type_node
-        self.poolLayer = PoolLayer
+        self.poolLayer = ClusterPooling
         self.hid_channel = 128
         self.batch_size = 1
         self.learningrate = 0.001
@@ -107,12 +106,12 @@ class GraphConvPoolNNRedditBinary(torch.nn.Module):
         self.conv1 = GCNConv(node_features, self.hid_channel)
         self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
 
-        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
 
-        self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool2 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
@@ -169,13 +168,13 @@ class GraphConvPoolNNRedditBinary(torch.nn.Module):
 
 class GraphConvPoolNNCOLLAB(torch.nn.Module):
     archName = "GCN Pooling COLLAB"
-    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
+    def __init__(self, node_features, task_type_node, num_classes, dataset_name, device):
         super().__init__()
         self.n_epochs = 400
         self.num_classes = num_classes
         self.device = device
         self.task_type_node = task_type_node
-        self.poolLayer = PoolLayer
+        self.poolLayer = ClusterPooling
         self.hid_channel = 128
         self.batch_size = 1
         #self.learningrate = 0.00025
@@ -195,11 +194,11 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
         self.conv1 = GCNConv(node_features, self.hid_channel)
         #self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
 
-        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         #sself.conv4 = GCNConv(self.hid_channel, self.hid_channel)
 
-        #self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        #self.pool2 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         #self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
 
         #self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
@@ -258,12 +257,12 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
 
 class GraphConvPoolNNRedditMulti(torch.nn.Module):
     archName = "GCN REDDIT-MULTI"
-    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
+    def __init__(self, node_features, task_type_node, num_classes, dataset_name, device):
         super().__init__()
         self.n_epochs = 200
         self.num_classes = num_classes
         self.device = device
-        self.poolLayer = PoolLayer
+        self.poolLayer = ClusterPooling
         self.hid_channel = 256
         self.batch_size = 1
         self.learningrate = 0.00025
@@ -280,11 +279,11 @@ class GraphConvPoolNNRedditMulti(torch.nn.Module):
         self.conv1 = GCNConv(node_features, self.hid_channel)
         self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
 
-        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
 
-        self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool2 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
@@ -342,12 +341,12 @@ class GraphConvPoolNNRedditMulti(torch.nn.Module):
         
 class GraphConvPoolNNRedditMulti5k(torch.nn.Module):
     archName = "GCN REDDIT-MULTI-5k"
-    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
+    def __init__(self, node_features, task_type_node, num_classes, dataset_name, device):
         super().__init__()
         self.n_epochs = 300
         self.num_classes = num_classes
         self.device = device
-        self.poolLayer = PoolLayer
+        self.poolLayer = ClusterPooling
         self.hid_channel = 256
         self.batch_size = 1
         self.learningrate = 0.0007
@@ -363,11 +362,11 @@ class GraphConvPoolNNRedditMulti5k(torch.nn.Module):
 
         self.conv1 = GCNConv(node_features, self.hid_channel)
         self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
-        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
 
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
-        self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool2 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
 
         self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
 
@@ -428,13 +427,13 @@ class GraphConvPoolNNRedditMulti5k(torch.nn.Module):
 
 class GraphConvPoolNNIMDBBinary(torch.nn.Module):
     archName = "GCN Pooling for IMDB-Binary"
-    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
+    def __init__(self, node_features, task_type_node, num_classes, dataset_name, device):
         super().__init__()
         self.n_epochs = 100
         self.num_classes = num_classes
         self.device = device
         self.task_type_node = task_type_node
-        self.poolLayer = PoolLayer
+        self.poolLayer = ClusterPooling
         self.hid_channel = 32
         self.batch_size = 1
         self.learningrate = 0.0001
@@ -450,7 +449,7 @@ class GraphConvPoolNNIMDBBinary(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout)
 
         self.conv1 = GCNConv(node_features, self.hid_channel)
-        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
 
@@ -488,12 +487,12 @@ class GraphConvPoolNNIMDBBinary(torch.nn.Module):
 
 class GraphConvPoolNNIMDBMulti(torch.nn.Module):
     archName = "GCN IMDB-Multi"
-    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
+    def __init__(self, node_features, task_type_node, num_classes, dataset_name, device):
         super().__init__()
         self.n_epochs = 100
         self.num_classes = num_classes
         self.device = device
-        self.poolLayer = PoolLayer
+        self.poolLayer = ClusterPooling
         self.hid_channel = 256
         self.batch_size = 1
         self.learningrate = 0.001
@@ -508,7 +507,7 @@ class GraphConvPoolNNIMDBMulti(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout)
 
         self.conv1 = GCNConv(node_features, self.hid_channel)
-        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
 
@@ -546,12 +545,12 @@ class GraphConvPoolNNIMDBMulti(torch.nn.Module):
 
 class GraphConvPoolNNNCI1(torch.nn.Module):
     archName = "GCN NCI1"
-    def __init__(self, node_features, task_type_node, num_classes, PoolLayer: torch.nn.Module, device):
+    def __init__(self, node_features, task_type_node, num_classes, dataset_name, device):
         super().__init__()
         self.n_epochs = 200
         self.num_classes = num_classes
         self.device = device
-        self.poolLayer = PoolLayer
+        self.poolLayer = ClusterPooling
         self.hid_channel = 32
         self.batch_size = 1
         self.learningrate = 0.01
@@ -570,11 +569,11 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         self.conv1 = GINConv(torch.nn.Linear(node_features, self.hid_channel))
         #self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
         self.conv2 = GINConv(torch.nn.Linear(self.hid_channel, self.hid_channel))
-        self.pool1 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
-        self.pool2 = PoolLayer(self.hid_channel, dropout=dropout_pool)
+        self.pool2 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
@@ -735,8 +734,8 @@ class GCNModel(ModelInterface):
             self.clf.to(self.device)
             param_count = np.sum([params.size()[0] for params in self.clf.parameters()])
             print(f"Created model with {param_count} parameters.")
-        if hasattr(self.clf, "optimizer"):
-            optimizer = self.clf.optimizer
+        if hasattr(self.clf, "optimizertype"):
+            optimizer = self.clf.optimizertype(self.clf.parameters(), lr=self.clf.learningrate)
         else:
             lr = 0.001
             if hasattr(self.clf, "learningrate"):

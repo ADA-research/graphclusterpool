@@ -39,9 +39,8 @@ for filepath in paths:
     with open(filepath, 'rb') as pkl:
         try:
             data = pickle.load(pkl)
-        except Exception:
-            print(f"Couldn't load file {filepath} because of Exception:")
-            print(Exception)
+        except Exception as err:
+            print(f"Couldn't load file {filepath} because of Exception: {err}")
             continue
 
     clfName, poolLayer, widthString = data["description"][0], data["description"][1], data["description"][2]
