@@ -646,7 +646,10 @@ class GCNModel(ModelInterface):
                 output_dim = self.n_labels
                 if self.n_labels == 2:
                     output_dim = 1
-                self.clf = xugcn.GraphCNN(num_layers=5, num_mlp_layers=2, input_dim=self.n_node_features, hidden_dim=hidden_dim, output_dim=output_dim, final_dropout=0.5, learn_eps=False, graph_pooling_type="sum", neighbor_pooling_type="sum", device=self.device)
+                readout = "sum"
+                if self.dataset_name != "PROTEINS" and  self.dataset_name != "NCI1":
+                    readout = "average"
+                self.clf = xugcn.GraphCNN(num_layers=5, num_mlp_layers=2, input_dim=self.n_node_features, hidden_dim=hidden_dim, output_dim=output_dim, final_dropout=0.5, learn_eps=False, graph_pooling_type=readout, neighbor_pooling_type="sum", device=self.device)
                 self.clf.batch_size = 128
                 if self.dataset_name == "PROTEINS":
                     self.clf.batch_size = 32
