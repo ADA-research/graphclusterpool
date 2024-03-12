@@ -37,7 +37,7 @@ class GCNXu(torch.nn.Module):
         #    dropout = 0
         self.dropout = torch.nn.Dropout(p=dropout)
 
-        self.conv1 = GINConv(torch.nn.Linear(node_features, self.hid_channel))
+        self.conv1 = GINConv(torch.nn.Linear(node_features, self.hid_channel),)
         self.batchnorm1 = BatchNorm(self.hid_channel)
         self.conv2 = GINConv(torch.nn.Linear(self.hid_channel, self.hid_channel))
         self.batchnorm2 = BatchNorm(self.hid_channel)

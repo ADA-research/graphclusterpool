@@ -14,6 +14,8 @@ from torch_geometric.data import Data
 
 from ModelInterface import ModelInterface
 
+import xugcn
+
 """Notes
 * Batch size does not seem to work well tried many sizes (4,8,16,32,64)
 * Hidden channel seems to be optimal at 64, maybe 32 could also be good
@@ -550,18 +552,18 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = ClusterPooling
-        self.hid_channel = 32
+        self.hid_channel = 64
         self.batch_size = 1
         self.learningrate = 0.001
         self.lrhalving = True
-        self.halvinginterval = 50
+        self.halvinginterval = 80
 
         if self.num_classes == 2: #binary
             self.num_classes = 1
 
         self.task_type_node = task_type_node
 
-        dropout=0.2
+        dropout=0.15
         dropout_pool=dropout
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
@@ -624,6 +626,7 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
 class GCNModel(ModelInterface):
     def __init__(self, data_name, data, labels, seed=None, task_type_node=True, type=torch.nn.Module, pooltype=ClusterPooling):
         super().__init__(data_name, data, labels, seed)
+        self.data_name = data_name
         self.architecture = type
         self.pooltype = pooltype
         self.task_type_node = task_type_node
@@ -634,7 +637,23 @@ class GCNModel(ModelInterface):
     def train_model(self, replace_model=True, verbose=False):
         "Function to fit the model to the data"
         if self.clf is None or replace_model is True:
-            self.clf = self.architecture(self.n_node_features, self.task_type_node, self.n_labels, self.pooltype, self.device)
+            if self.architecture == xugcn.GraphCNN:
+                hidden_dim = 64
+                if self.dataset_name == "PROTEINS":
+                    hidden_dim = 16
+                if self.dataset_name == "NCI1":
+                    hidden_dim = 32
+                self.clf = xugcn.GraphCNN(num_layers=5, num_mlp_layers=2, input_dim=self.n_node_features, hidden_dim=hidden_dim, output_dim=self.n_labels, final_dropout=0.5, learn_eps=False, graph_pooling_type="sum", neighbor_pooling_type="sum", device=self.device)
+                self.clf.batch_size = 128
+                if self.dataset_name == "PROTEINS":
+                    self.clf.batch_size = 32
+
+                self.clf.learningrate = 0.01
+                self.clf.lrhalving = True
+                self.clf.halvinginterval = 50
+                self.clf.optimizertype = torch.optim.Adam
+            else:
+                self.clf = self.architecture(self.n_node_features, self.task_type_node, self.n_labels, self.pooltype, self.device)
             self.clf.to(self.device)
             param_count = np.sum([params.size()[0] for params in self.clf.parameters()])
             print(f"Created model with {param_count} parameters.")

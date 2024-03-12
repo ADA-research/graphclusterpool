@@ -3,6 +3,8 @@ from ModelInterface import ModelInterface
 import neuralmodels as nm
 import pickle
 import rerundiehl as rrd
+import rerunxu as rrx
+import xugcn
 from cluster_pool import ClusterPooling
 
 import sys
@@ -126,6 +128,8 @@ def build_model(parser: argparse) -> ModelInterface:
 
     if parser.rerun == "diehl":
         type = rrd.GCNDiehl
+    elif parser.rerun == "xu":
+        type = xugcn.GraphCNN
 
     return nm.GCNModel(data_name=parser.dataset, data=data, labels=labels, task_type_node=task_type_node, seed=args.seed, type=type, pooltype=pooltype)
 
