@@ -198,12 +198,9 @@ class GraphCNN(nn.Module):
 
 
     def forward(self, batch_graph):
-        #X_concat = batch_graph[0].to(self.device)
+        X_concat = batch_graph[0].to(self.device)
         batch_graph = batch_graph[-1]
-        
-        X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device)
-        print(X_concat)
-        input()
+        #X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device)
         
         graph_pool = self.__preprocess_graphpool(batch_graph)
 
