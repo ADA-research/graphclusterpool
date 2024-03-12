@@ -6,7 +6,7 @@ import sklearn
 
 import torch
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, GINConv
+from torch_geometric.nn import GCNConv
 from torch_geometric.nn import global_mean_pool
 from cluster_pool import ClusterPooling
 
@@ -552,7 +552,7 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = ClusterPooling
-        self.hid_channel = 64
+        self.hid_channel = 128
         self.batch_size = 1
         self.learningrate = 0.001
         self.lrhalving = True
@@ -719,7 +719,9 @@ class GCNModel(ModelInterface):
                 batchtensor = torch.tensor(batchlist, device=self.device)
                 data = [torch.cat(nodes), torch.cat(edges), torch.cat(labels), batchtensor]
                 if self.architecture == xugcn.GraphCNN:
-                    data.append([self.train[i][3] for i in range(starti, endi)])
+                    extra_data = []
+                    extra_data.extend([self.train[i][3][0] for i in range(starti, endi)])
+                    data.append(extra_data)
                 optimizer.zero_grad()
                 out = self.clf(data)
                 
@@ -763,11 +765,8 @@ class GCNModel(ModelInterface):
                 vlbls = []
                 for data in self.valid: #For every graph in the data set
                     batch = torch.tensor([0 for _ in range(data[0].size(0))])
-                    
                     if not self.architecture == xugcn.GraphCNN:
                         data.append(batch)
-                    elif not isinstance(data[-1], list):
-                        data[-1] = [data[-1]]
                     out = self.clf(data) #Get the labels from all the nodes in one graph 
                     val_lab = data[2]
                     if not self.bnry:

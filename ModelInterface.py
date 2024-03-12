@@ -41,6 +41,7 @@ class ModelInterface:
 
         self.train = []
         self.valid = []
+        self.test = []
 
     def generate_train_validation_test(self, split_train=0.8, split_validation=0.1, shuffle_for=1):
         "Creates a random train/validation/test split from the internal data object"
@@ -219,8 +220,9 @@ class ModelInterface:
                 tlbls = []
                 # Get the test set score and place it in test_set_scores
                 for data in self.test: #For every graph in the data set
-                    batch = torch.tensor([0 for _ in range(data[0].size(0))])
-                    data.append(batch)
+                    if type(self.data[-1]) == torch.Tensor:
+                        batch = torch.tensor([0 for _ in range(data[0].size(0))])
+                        data.append(batch)
                     out = self.clf(data) #Get the labels from all the nodes in one graph 
                     test_lab = data[2]
                     if not self.bnry:

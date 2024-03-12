@@ -3,7 +3,6 @@ from ModelInterface import ModelInterface
 import neuralmodels as nm
 import pickle
 import rerundiehl as rrd
-import rerunxu as rrx
 import xugcn
 from cluster_pool import ClusterPooling
 from extradataxu.extra_xu_dataloader import get_extra_data
@@ -132,7 +131,7 @@ def build_model(parser: argparse) -> ModelInterface:
         type = xugcn.GraphCNN
         extra_data = get_extra_data(parser.dataset)
         for i,e in enumerate(extra_data):
-            data[i].append(e)
+            data[i].append([e])
 
     return nm.GCNModel(data_name=parser.dataset, data=data, labels=labels, task_type_node=task_type_node, seed=args.seed, type=type, pooltype=pooltype)
 
