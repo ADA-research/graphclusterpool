@@ -58,7 +58,7 @@ for filepath in paths:
         print(f"Best validation epochs ({np.min(bve)}-{np.max(bve)}):\n {bve}\n{maxval}")
     fig, axes = plt.subplots(2, 2)
     fig.tight_layout(pad=1.0)
-    fig.suptitle(f"Training metrics {clfName} {poolLayer})")
+    fig.suptitle(f"Training metrics {clfName})")
     fig.subplots_adjust(top=0.9)
 
     tloss = np.mean(train_loss_f, axis=0)
@@ -95,6 +95,8 @@ for filepath in paths:
     plot_line_with_std(axes[0][1], vloss, np.std(validation_loss_f, axis=0), color="red")
     plot_line_with_std(axes[1][0], tacc, np.std(train_acc_f, axis=0), color="blue")
     plot_line_with_std(axes[1][1], vacc, np.std(validation_acc_f, axis=0), color="blue")
+    axes[0][0].set_ylim((avg_min_t_loss/1.5), avg_min_t_loss*1.5)
+    axes[0][1].set_ylim((avg_min_v_loss/1.5), avg_min_v_loss*1.5)
 
     plt.savefig(str(filepath) + ".png")
     plt.show()

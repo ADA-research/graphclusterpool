@@ -233,7 +233,7 @@ class ClusterPooling(torch.nn.Module):
         new_edge = new_edge.to(x.device)
 
         #We compute the new features as the sum of the cluster's nodes' features, multiplied by the edge score
-        new_edge_score = edge_score[sel_edge] #Get the scores that come into play
+        new_edge_score = edge_score[sel_edge] # Get the scores of the selected edges
         node_reps = (x[new_edge[0]] + x[new_edge[1]])
         node_reps = node_reps * new_edge_score.view(-1,1)
         new_x = torch.clone(x)
