@@ -7,6 +7,7 @@ sys.path.append("models/")
 from xumlp import MLP
 
 class GraphCNN(nn.Module):
+    archName = "GCN Xu"
     def __init__(self, num_layers, num_mlp_layers, input_dim, hidden_dim, output_dim, final_dropout, learn_eps, graph_pooling_type, neighbor_pooling_type, device):
         '''
             num_layers: number of layers in the neural networks (INCLUDING the input layer)
@@ -23,6 +24,8 @@ class GraphCNN(nn.Module):
 
         super(GraphCNN, self).__init__()
 
+        self.n_epochs = 200
+
         self.final_dropout = final_dropout
         self.device = device
         self.num_layers = num_layers
@@ -30,6 +33,7 @@ class GraphCNN(nn.Module):
         self.neighbor_pooling_type = neighbor_pooling_type
         self.learn_eps = learn_eps
         self.eps = nn.Parameter(torch.zeros(self.num_layers-1))
+        self.output_dim = output_dim
 
         ###List of MLPs
         self.mlps = torch.nn.ModuleList()
@@ -193,7 +197,13 @@ class GraphCNN(nn.Module):
 
 
     def forward(self, batch_graph):
-        X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device)
+        #print(batch_graph)
+        X_concat = batch_graph[0].to(self.device)
+        batch_graph = batch_graph[-1]
+        
+        #X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device)
+        #print(X_concat.size())
+        
         graph_pool = self.__preprocess_graphpool(batch_graph)
 
         if self.neighbor_pooling_type == "max":
@@ -223,5 +233,11 @@ class GraphCNN(nn.Module):
         for layer, h in enumerate(hidden_rep):
             pooled_h = torch.spmm(graph_pool, h)
             score_over_layer += F.dropout(self.linears_prediction[layer](pooled_h), self.final_dropout, training = self.training)
+
+        if self.output_dim == 1: #binary
+            x = torch.sigmoid(score_over_layer)
+            return torch.flatten(x)
+        else:
+            return torch.nn.functional.log_softmax(score_over_layer, dim=1)
 
         return score_over_layer

@@ -643,7 +643,10 @@ class GCNModel(ModelInterface):
                     hidden_dim = 16
                 if self.dataset_name == "NCI1":
                     hidden_dim = 32
-                self.clf = xugcn.GraphCNN(num_layers=5, num_mlp_layers=2, input_dim=self.n_node_features, hidden_dim=hidden_dim, output_dim=self.n_labels, final_dropout=0.5, learn_eps=False, graph_pooling_type="sum", neighbor_pooling_type="sum", device=self.device)
+                output_dim = self.n_labels
+                if self.n_labels == 2:
+                    output_dim = 1
+                self.clf = xugcn.GraphCNN(num_layers=5, num_mlp_layers=2, input_dim=self.n_node_features, hidden_dim=hidden_dim, output_dim=output_dim, final_dropout=0.5, learn_eps=False, graph_pooling_type="sum", neighbor_pooling_type="sum", device=self.device)
                 self.clf.batch_size = 128
                 if self.dataset_name == "PROTEINS":
                     self.clf.batch_size = 32
@@ -652,6 +655,7 @@ class GCNModel(ModelInterface):
                 self.clf.lrhalving = True
                 self.clf.halvinginterval = 50
                 self.clf.optimizertype = torch.optim.Adam
+                
             else:
                 self.clf = self.architecture(self.n_node_features, self.task_type_node, self.n_labels, self.pooltype, self.device)
             self.clf.to(self.device)
@@ -714,6 +718,8 @@ class GCNModel(ModelInterface):
                 batchlist = list(itertools.chain.from_iterable(itertools.repeat(i, c.size(0)) for i, c in enumerate(nodes)))
                 batchtensor = torch.tensor(batchlist, device=self.device)
                 data = [torch.cat(nodes), torch.cat(edges), torch.cat(labels), batchtensor]
+                if self.architecture == xugcn.GraphCNN:
+                    data.append([self.train[i][3] for i in range(starti, endi)])
                 optimizer.zero_grad()
                 out = self.clf(data)
                 
@@ -757,7 +763,11 @@ class GCNModel(ModelInterface):
                 vlbls = []
                 for data in self.valid: #For every graph in the data set
                     batch = torch.tensor([0 for _ in range(data[0].size(0))])
-                    data.append(batch)
+                    
+                    if not self.architecture == xugcn.GraphCNN:
+                        data.append(batch)
+                    elif not isinstance(data[-1], list):
+                        data[-1] = [data[-1]]
                     out = self.clf(data) #Get the labels from all the nodes in one graph 
                     val_lab = data[2]
                     if not self.bnry:
