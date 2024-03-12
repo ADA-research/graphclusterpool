@@ -198,12 +198,12 @@ class GraphCNN(nn.Module):
 
 
     def forward(self, batch_graph):
-        #print(batch_graph)
-        X_concat = batch_graph[0].to(self.device)
+        #X_concat = batch_graph[0].to(self.device)
         batch_graph = batch_graph[-1]
         
-        #X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device)
-        #print(X_concat.size())
+        X_concat = torch.cat([graph.node_features for graph in batch_graph], 0).to(self.device)
+        print(X_concat)
+        input()
         
         graph_pool = self.__preprocess_graphpool(batch_graph)
 
@@ -240,5 +240,3 @@ class GraphCNN(nn.Module):
             return torch.flatten(x)
         else:
             return torch.nn.functional.log_softmax(score_over_layer, dim=1)
-
-        return score_over_layer
