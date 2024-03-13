@@ -651,7 +651,7 @@ class GCNModel(ModelInterface):
                     readout = "average"
                 self.clf = xugcn.GraphCNN(num_layers=5, num_mlp_layers=2, input_dim=self.n_node_features, hidden_dim=hidden_dim, output_dim=output_dim, final_dropout=0.5, learn_eps=False, graph_pooling_type=readout, neighbor_pooling_type="sum", device=self.device)
                 self.clf.batch_size = 128
-                if self.dataset_name == "PROTEINS" or self.dataset_name == "REDDIT-BINARY":
+                if self.dataset_name == "PROTEIN" or self.dataset_name == "REDDIT-BINARY":
                     self.clf.batch_size = 32
 
                 self.clf.learningrate = 0.01
