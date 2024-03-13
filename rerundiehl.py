@@ -15,7 +15,7 @@ class GCNDiehl(torch.nn.Module):
         self.num_classes = num_classes
         self.device = device
         self.hid_channel = 128
-        if dataset_name == "PROTEINS":
+        if dataset_name == "PROTEIN":
             self.hid_channel = 64
         
         self.batch_size = 128
