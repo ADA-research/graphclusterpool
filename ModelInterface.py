@@ -220,9 +220,8 @@ class ModelInterface:
                 tlbls = []
                 # Get the test set score and place it in test_set_scores
                 for data in self.test: #For every graph in the data set
-                    if type(self.data[-1]) == torch.Tensor:
-                        batch = torch.tensor([0 for _ in range(data[0].size(0))])
-                        data.append(batch)
+                    batch = torch.tensor([0 for _ in range(data[0].size(0))])
+                    data.insert(3, batch)
                     out = self.clf(data) #Get the labels from all the nodes in one graph 
                     test_lab = data[2]
                     if not self.bnry:

@@ -639,7 +639,7 @@ class GCNModel(ModelInterface):
         if self.clf is None or replace_model is True:
             if self.architecture == xugcn.GraphCNN:
                 hidden_dim = 64
-                if self.dataset_name == "PROTEINS":
+                if self.dataset_name == "PROTEIN":
                     hidden_dim = 16
                 if self.dataset_name == "NCI1":
                     hidden_dim = 32
@@ -647,11 +647,11 @@ class GCNModel(ModelInterface):
                 if self.n_labels == 2:
                     output_dim = 1
                 readout = "sum"
-                if self.dataset_name != "PROTEINS" and  self.dataset_name != "NCI1":
+                if self.dataset_name != "PROTEIN" and  self.dataset_name != "NCI1":
                     readout = "average"
                 self.clf = xugcn.GraphCNN(num_layers=5, num_mlp_layers=2, input_dim=self.n_node_features, hidden_dim=hidden_dim, output_dim=output_dim, final_dropout=0.5, learn_eps=False, graph_pooling_type=readout, neighbor_pooling_type="sum", device=self.device)
                 self.clf.batch_size = 128
-                if self.dataset_name == "PROTEINS":
+                if self.dataset_name == "PROTEINS" or self.dataset_name == "REDDIT-BINARY":
                     self.clf.batch_size = 32
 
                 self.clf.learningrate = 0.01
