@@ -785,11 +785,11 @@ class GCNModel(ModelInterface):
                 vloss.append(val_loss)
                 valid_metric = sklearn.metrics.accuracy_score(self.y_valid, vlbls)
                 vmetric_list.append(valid_metric)
-                #if valid_metric >= np.max(vmetric_list): #Best validation score thusfar
-                #    best_mod = copy.deepcopy(self.clf.state_dict())
-                
-                if val_loss <= np.min(vloss): #Best validation score thusfar
+                if valid_metric >= np.max(vmetric_list): #Best validation score thusfar
                     best_mod = copy.deepcopy(self.clf.state_dict())
+                # This seems to be better (Empirically checked on PROTEINS) but would require a re-run of all experiments
+                #if val_loss <= np.min(vloss): #Best validation score thusfar
+                #    best_mod = copy.deepcopy(self.clf.state_dict())
                     
                 if verbose or True:
                     print(f"\t\t\t\t\t\t Validation result: {valid_metric:.4f} [Accuracy] --- {val_loss:.4f} [Loss] ", flush=True)

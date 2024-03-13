@@ -14,6 +14,6 @@ for file in files:
     if line.strip().startswith("[!]"):
         res.append(float(line.split(" ")[-1]))
 
-print(f"Result: {np.mean(res)} +/ {np.std(res)}")
+print(f"[{len(res)}] Result: {np.mean(res)} +/ {np.std(res)}")
 res.sort()
 print(res)
