@@ -697,7 +697,7 @@ class GCNModel(ModelInterface):
             lrhalving = self.clf.lrhalving
             if hasattr(self.clf, "halvinginterval"):
                 halvinginterval = self.clf.halvinginterval
-        if hasattr(self.clf, "lrcosine") and self.clf.lrcosine == True:
+        if hasattr(self.clf, "lrcosine") and self.clf.lrcosine:
             #torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=self.clf.n_epochs + 1)
             torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=2*(self.clf.n_epochs + 1))
 
@@ -785,7 +785,10 @@ class GCNModel(ModelInterface):
                 vloss.append(val_loss)
                 valid_metric = sklearn.metrics.accuracy_score(self.y_valid, vlbls)
                 vmetric_list.append(valid_metric)
-                if valid_metric >= np.max(vmetric_list): #Best validation score thusfar
+                #if valid_metric >= np.max(vmetric_list): #Best validation score thusfar
+                #    best_mod = copy.deepcopy(self.clf.state_dict())
+                
+                if val_loss <= np.min(vloss): #Best validation score thusfar
                     best_mod = copy.deepcopy(self.clf.state_dict())
                     
                 if verbose or True:
