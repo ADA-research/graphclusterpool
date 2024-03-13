@@ -8,6 +8,7 @@ from cluster_pool import ClusterPooling
 from extradataxu.extra_xu_dataloader import get_extra_data
 
 import sys
+import datetime
 
 # Define arg parse
 def parser_function() -> argparse.ArgumentParser:
@@ -144,7 +145,7 @@ if __name__ == "__main__":
 
     model = build_model(args)
     
-    print("Arguments have been parsed. Starting procedure.", flush=True)
+    print(f"Arguments have been parsed. Starting procedure on dataset {model.dataset_name} at: {datetime.datetime.now()}", flush=True)
     display = args.nodisplay is None or not args.nodisplay
     file = args.filename
 
