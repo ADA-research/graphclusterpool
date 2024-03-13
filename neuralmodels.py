@@ -171,21 +171,21 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
     archName = "GCN Pooling COLLAB"
     def __init__(self, node_features, task_type_node, num_classes, dataset_name, device):
         super().__init__()
-        self.n_epochs = 400
+        self.n_epochs = 200
         self.num_classes = num_classes
         self.device = device
         self.task_type_node = task_type_node
         self.poolLayer = ClusterPooling
-        self.hid_channel = 128
+        self.hid_channel = 64
         self.batch_size = 1
         #self.learningrate = 0.00025
-        self.learningrate = 0.0005
+        self.learningrate = 0.001
         self.weight_decay = 0
         self.lrcosine = False
         self.lrhalving = True
         self.halvinginterval = 175
-        dropout=0.0
-        dropout_pool=0.0
+        dropout=0.1
+        dropout_pool=dropout
         
         if self.num_classes == 2: #binary
             self.num_classes = 1
@@ -552,7 +552,7 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = ClusterPooling
-        self.hid_channel = 128
+        self.hid_channel = 32
         self.batch_size = 1
         self.learningrate = 0.001
         self.lrhalving = True
@@ -563,7 +563,7 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
 
         self.task_type_node = task_type_node
 
-        dropout=0.15
+        dropout=0.0
         dropout_pool=dropout
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
@@ -647,7 +647,7 @@ class GCNModel(ModelInterface):
                 if self.n_labels == 2:
                     output_dim = 1
                 readout = "sum"
-                if self.dataset_name != "PROTEIN" and  self.dataset_name != "NCI1" or self.dataset_name != "COLLAB":
+                if self.dataset_name != "PROTEIN" and  self.dataset_name != "NCI1":
                     readout = "average"
                 drop_factor = 0.5
 
@@ -658,7 +658,7 @@ class GCNModel(ModelInterface):
                                           final_dropout=drop_factor, learn_eps=False,
                                           graph_pooling_type=readout, neighbor_pooling_type="sum", device=self.device)
                 self.clf.batch_size = 128
-                if self.dataset_name == "PROTEIN" or self.dataset_name == "REDDIT-BINARY":
+                if self.dataset_name == "PROTEIN" or self.dataset_name == "REDDIT-BINARY": #or self.dataset_name == "COLLAB":
                     self.clf.batch_size = 32
 
                 self.clf.learningrate = 0.01
