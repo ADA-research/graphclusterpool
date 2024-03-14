@@ -176,15 +176,15 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
         self.device = device
         self.task_type_node = task_type_node
         self.poolLayer = ClusterPooling
-        self.hid_channel = 64
+        self.hid_channel = 32
         self.batch_size = 1
         #self.learningrate = 0.00025
         self.learningrate = 0.001
         self.weight_decay = 0
         self.lrcosine = False
         self.lrhalving = True
-        self.halvinginterval = 175
-        dropout=0.4
+        self.halvinginterval = 65
+        dropout=0.5
         dropout_pool=dropout
         
         if self.num_classes == 2: #binary
@@ -556,14 +556,14 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         self.batch_size = 1
         self.learningrate = 0.001
         self.lrhalving = True
-        self.halvinginterval = 80
+        self.halvinginterval = 50
 
         if self.num_classes == 2: #binary
             self.num_classes = 1
 
         self.task_type_node = task_type_node
 
-        dropout=0.4
+        dropout=0.05
         dropout_pool=dropout
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)

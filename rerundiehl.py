@@ -83,6 +83,7 @@ class GCNDiehl(torch.nn.Module):
         x = self.batchnorm2(x)
         x = self.lin1(torch.concat((x, copy_x), dim=1))
         x = self.dropout(x)
+        block1_copy = x.clone()
 
         x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
 
@@ -96,6 +97,7 @@ class GCNDiehl(torch.nn.Module):
         x = self.batchnorm4(x)
         x = self.lin2(torch.concat((x, copy_x), dim=1))
         x = self.dropout(x)
+        block2_copy = x.clone()
 
         x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
 
@@ -109,9 +111,10 @@ class GCNDiehl(torch.nn.Module):
         x = self.batchnorm6(x)
         x = self.lin3(torch.concat((x, copy_x), dim=1))
         x = self.dropout(x)
+        block3_copy = x.clone()
 
         x, edge_index, batch, unpool3 = self.pool3(x, edge_index.long(), batch)
-
+        x = torch.cat((block1_copy, block2_copy, block3_copy, x))
         x = global_mean_pool(x, batch)
 
         x = self.fc1(x)
