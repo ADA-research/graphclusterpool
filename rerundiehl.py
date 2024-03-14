@@ -15,10 +15,14 @@ class GCNDiehl(torch.nn.Module):
         self.num_classes = num_classes
         self.device = device
         self.hid_channel = 128
+        self.edge_act = EdgePooling.compute_edge_score_softmax
         if dataset_name == "PROTEIN":
             self.hid_channel = 64
         
         self.batch_size = 128
+        if dataset_name == "REDDIT-BINARY" or dataset_name == "REDDIT-MULTI-12K":
+            self.edge_act = EdgePooling.compute_edge_score_tanh
+        #    self.batch_size = 32
         self.learningrate = 0.01
         self.lrhalving = True
         self.halvinginterval = 50
@@ -38,13 +42,13 @@ class GCNDiehl(torch.nn.Module):
         self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
         self.batchnorm2 = BatchNorm(self.hid_channel)
 
-        self.pool1 = EdgePooling(self.hid_channel, dropout=dropout_pool)
+        self.pool1 = EdgePooling(self.hid_channel, dropout=dropout_pool, edge_score_method=self.edge_act)
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         self.batchnorm3 = BatchNorm(self.hid_channel)
         self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
         self.batchnorm4 = BatchNorm(self.hid_channel)
 
-        self.pool2 = EdgePooling(self.hid_channel, dropout=dropout_pool)
+        self.pool2 = EdgePooling(self.hid_channel, dropout=dropout_pool, edge_score_method=self.edge_act)
         self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
         self.batchnorm5 = BatchNorm(self.hid_channel)
 
