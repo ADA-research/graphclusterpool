@@ -184,7 +184,7 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
         self.lrcosine = False
         self.lrhalving = True
         self.halvinginterval = 175
-        dropout=0.1
+        dropout=0.4
         dropout_pool=dropout
         
         if self.num_classes == 2: #binary
@@ -563,7 +563,7 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
 
         self.task_type_node = task_type_node
 
-        dropout=0.0
+        dropout=0.4
         dropout_pool=dropout
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
