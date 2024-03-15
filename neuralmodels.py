@@ -548,11 +548,11 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
     archName = "GCN NCI1"
     def __init__(self, node_features, task_type_node, num_classes, datset_name, device):
         super().__init__()
-        self.n_epochs = 400
+        self.n_epochs = 200
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = ClusterPooling
-        self.hid_channel = 32
+        self.hid_channel = 64
         self.batch_size = 1
         self.learningrate = 0.001
         self.lrhalving = True
@@ -568,16 +568,16 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
         
-        self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
         
         self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         
-        self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
         
-        self.pool2 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
-        self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.pool2 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
+        #self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
 
         self.fc1 = torch.nn.Linear(self.hid_channel, self.hid_channel)
         self.fc2 = torch.nn.Linear(self.hid_channel, self.num_classes)
@@ -591,9 +591,9 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-        x = self.conv2(x, edge_index)
-        x = F.relu(x)
-        x = self.dropout(x)
+        #x = self.conv2(x, edge_index)
+        #x = F.relu(x)
+        #x = self.dropout(x)
 
         x, edge_index, batch, unpool1 = self.pool1(x, edge_index.long(), batch)
 
@@ -601,15 +601,15 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
-        x = self.conv4(x, edge_index)
-        x = F.relu(x)
-        x = self.dropout(x)
+        #x = self.conv4(x, edge_index)
+        #x = F.relu(x)
+        #x = self.dropout(x)
 
-        x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
+        #x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
 
-        x = self.conv5(x, edge_index)
-        x = F.relu(x)
-        x = self.dropout(x)
+        #x = self.conv5(x, edge_index)
+        #x = F.relu(x)
+        #x = self.dropout(x)
 
         x = global_mean_pool(x, batch)
 
