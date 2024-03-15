@@ -256,6 +256,13 @@ class GCNDiehl(torch.nn.Module):
         dropout=0.0
         dropout_pool=dropout
 
+        if dataset_name == "REDDIT-MULTI-12K":
+            #self.batch_size = 128
+            #self.learningrate = 0.0005
+            self.hid_channel = 256
+            self.batch_size = 1
+            self.learningrate = 0.00025
+
         if self.num_classes == 2: #binary
             self.num_classes = 1
         
