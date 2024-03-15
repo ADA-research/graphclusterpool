@@ -667,7 +667,7 @@ class GCNModel(ModelInterface):
                 self.clf.optimizertype = torch.optim.Adam
                 
             else:
-                self.clf = self.architecture(self.n_node_features, self.task_type_node, self.n_labels, self.pooltype, self.device)
+                self.clf = self.architecture(self.n_node_features, self.task_type_node, self.n_labels, self.data_name, self.device)
             self.clf.to(self.device)
             param_count = np.sum([params.size()[0] for params in self.clf.parameters()])
             print(f"Created model with {param_count} parameters.")
