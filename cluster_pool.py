@@ -5,6 +5,8 @@ import torch
 import torch.nn.functional as F
 from torch_sparse import coalesce
 
+from torch_geometric.utils import to_scipy_sparse_matrix
+import scipy.sparse as sp
 
 #from line_profiler import LineProfiler
 # Refine/simplify this code to specific needs so we no longer need torch_scatter
@@ -37,7 +39,7 @@ def scatter_add(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
     else:
         return out.scatter_add_(dim, index, src)
 
-def calculate_components(n_nodes: int, edges: torch.tensor):
+"""def calculate_components(n_nodes: int, edges: torch.tensor):
         # From https://stackoverflow.com/questions/10301000/python-connected-components
         # Can we do this as tensor operations that yield a cluster index per node?
         def get_all_connected_groups(graph):
@@ -111,7 +113,7 @@ def calculate_components_torch(n_nodes: int, edges: torch.tensor):
     for i, e in enumerate(clusters):
         cluster_idx[e] = i
     #print(cluster_idx.nonzero().size())
-    return cluster_idx, len(clusters)
+    return cluster_idx, len(clusters)"""
 
 class ClusterPooling(torch.nn.Module):
     r""" REWRITE THIS
@@ -214,26 +216,23 @@ class ClusterPooling(torch.nn.Module):
     
     """ New merge function for combining the nodes """
     def __merge_edges__(self, x, edge_index, batch, edge_score):
-        cluster = torch.empty_like(batch, device=torch.device('cpu'))
+        
         # Select the edges from the Graph
         edge_mask = (edge_score >= self.threshhold)
         sel_edge = edge_mask.nonzero().flatten()        
         new_edge = torch.index_select(edge_index, dim=1, index=sel_edge).to(x.device)
-        # Determine the components in the new graph G' = (V, E')
-        components = calculate_components(x.size(0), new_edge) #47.3% of time
-        # Unpack the components into a cluster index for each node
-        i = 0
-        for c in components: #15% of time
-            cluster[c] = i
-            i += 1
 
+        # Determine the components in the new graph G' = (V, E')
+        adj = to_scipy_sparse_matrix(new_edge, num_nodes=x.size(0))
+        i, components = sp.csgraph.connected_components(adj, directed=False)
+        cluster = torch.tensor(components, dtype=torch.int64)
+        
         cluster, new_edge = cluster.to(x.device), new_edge.to(x.device)
 
         #We compute the new features as the sum of the cluster's nodes' features, multiplied by the edge score
         new_edge_score = edge_score[sel_edge] # Get the scores of the selected edges
         # Create the nodes with the edge factor
         new_x = torch.zeros_like(x)
-        # The edge scores must be summed per node
         from torch_scatter import scatter_mul
         node_factors = torch.ones(new_x.size(0))
         scatter_mul(torch.concat((new_edge_score, new_edge_score)), new_edge.flatten(), out=node_factors)
