@@ -7,6 +7,8 @@ from torch_sparse import coalesce
 from torch_scatter import scatter_add
 
 from torch_geometric.utils import to_scipy_sparse_matrix
+from torch_geometric.utils import dense_to_sparse
+from torch_geometric.utils import to_dense_adj
 import scipy.sparse as sp
 
 #from line_profiler import LineProfiler
@@ -46,7 +48,7 @@ class ClusterPooling(torch.nn.Module):
         ["edge_index", "batch", "cluster_map"])
 
     def __init__(self, in_channels, edge_score_method=None, dropout=0.0,
-                 threshold=0.0):
+                 threshold=0.0, directed=False):
         super().__init__()
         self.in_channels = in_channels
         if edge_score_method is None:
@@ -54,9 +56,8 @@ class ClusterPooling(torch.nn.Module):
         self.compute_edge_score = edge_score_method
         self.threshhold = threshold
         self.dropout = dropout
-
-        self.lin = torch.nn.Linear(2 * in_channels, 1, bias=False)
-        self.bias = torch.nn.Parameter(torch.zeros(1))
+        self.directed = directed
+        self.lin = torch.nn.Linear(2 * in_channels, 1)
 
         self.reset_parameters()
 
@@ -75,7 +76,7 @@ class ClusterPooling(torch.nn.Module):
     def compute_edge_score_logsoftmax(raw_edge_score):
         return torch.nn.functional.log_softmax(raw_edge_score, dim=0)
 
-    def forward(self, x, edge_index, batch, directed=False):
+    def forward(self, x, edge_index, batch):
         r"""Forward computation which computes the raw edge score, normalizes
         it, and merges the edges.
 
@@ -96,11 +97,11 @@ class ClusterPooling(torch.nn.Module):
         #First we drop the self edges as those cannot be clustered
         msk = edge_index[0] != edge_index[1]
         edge_index = edge_index[:,msk]
+        if not self.directed:
+            edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=-1)
+
         e = torch.cat([x[edge_index[0]], x[edge_index[1]]], dim=-1) #Concatenates the source feature with the target features
         e = self.lin(e).view(-1) #Apply linear NN on the node pairs (edges) and reshape to 1 dimension
-        if not directed:
-            e += self.lin(torch.cat([x[edge_index[1]], x[edge_index[0]]], dim=-1)).view(-1)
-        e = e + self.bias
         e = F.dropout(e, p=self.dropout, training=self.training)
 
         e = self.compute_edge_score(e) #Non linear activation function
@@ -110,20 +111,34 @@ class ClusterPooling(torch.nn.Module):
         return x, edge_index, batch, unpool_info
     
     """ New merge function for combining the nodes """
-    def __merge_edges__(self, x, edge_index, batch, edge_score):
-        
+    def __merge_edges__(self, X, edge_index, batch, edge_score):
+        edges_contract = edge_index[..., edge_score > self.threshhold]
+
+        adj = to_scipy_sparse_matrix(edges_contract, num_nodes=X.size(0))
+        _, cluster_index = sp.csgraph.connected_components(adj, directed=True, connection="weak")
+
+        cluster_index = torch.tensor(cluster_index, dtype=torch.int64, device=X.device)
+        C = F.one_hot(cluster_index).type(torch.float)
+        A = to_dense_adj(edge_index, max_num_nodes=X.size(0)).squeeze(0)
+        S = to_dense_adj(edge_index, edge_attr=edge_score, max_num_nodes=X.size(0)).squeeze(0)
+
+        A_contract = to_dense_adj(edges_contract, max_num_nodes=X.size(0)).type(torch.int).squeeze(0)
+        nodes_single = ((A_contract.sum(-1) + A_contract.sum(-2))==0).nonzero()
+        S[nodes_single,nodes_single] = 1
+
+        X_new = (S @ C).T @ X
+        edge_index_new, _ = dense_to_sparse((C.T @ A @ C).fill_diagonal_(0))
         # Select the edges from the Graph
-        edge_mask = (edge_score >= self.threshhold)
-        sel_edge = edge_mask.nonzero().flatten()        
+        """sel_edge = (edge_score >= self.threshhold).nonzero().flatten()        
         new_edge = torch.index_select(edge_index, dim=1, index=sel_edge).to(x.device)
 
         # Determine the components in the new graph G' = (V, E')
         adj = to_scipy_sparse_matrix(new_edge, num_nodes=x.size(0))
-        i, components = sp.csgraph.connected_components(adj, directed=False)
+        num_clusters, components = sp.csgraph.connected_components(adj, directed=False)
         cluster = torch.tensor(components, dtype=torch.int64, device=x.device)
 
         new_edge_score = edge_score[sel_edge] # Get the scores of the selected edges
-        #1 Creer de edge score adjacency matrix
+        #1 Create the edge score adjacency matrix
         adjacency_score = torch.zeros(x.size(0), x.size(0))
         adjacency_score[new_edge[0], new_edge[1]] = new_edge_score
         #2 reduce dimension through sum
@@ -133,19 +148,21 @@ class ClusterPooling(torch.nn.Module):
         #3 create new_x repr by x * summed_edge_scores
         new_x = x * node_edge_score_factor[:, None]
         #4 sum the cluster together through scatter_add
-        new_x = scatter_add(new_x, cluster, dim=0, dim_size=i)
+        new_x = scatter_add(new_x, cluster, dim=0, dim_size=num_clusters)
+
+
         #5 remaped the edges through coalesce
         N = new_x.size(0)
-        new_edge_index, _ = coalesce(cluster[edge_index], None, N, N) #Remap the edges based on cluster, and coalesce removes all the doubles
+        new_edge_index, _ = coalesce(cluster[edge_index], None, N, N) #Remap the edges based on cluster, and coalesce removes all the doubles"""
 
-        new_batch = x.new_empty(new_x.size(0), dtype=torch.long)
-        new_batch = new_batch.scatter_(0, cluster, batch)
+        new_batch = X.new_empty(X_new.size(0), dtype=torch.long)
+        new_batch = new_batch.scatter_(0, cluster_index, batch)
 
         unpool_info = self.unpool_description(edge_index=edge_index,
                                               batch=batch,
-                                              cluster_map=components)
+                                              cluster_map=cluster_index)
 
-        return new_x.to(x.device), new_edge_index.to(x.device), new_batch, unpool_info
+        return X_new.to(X.device), edge_index_new.to(X.device), new_batch, unpool_info
 
     def unpool(self, x, unpool_info):
         r"""Unpools a previous cluster pooling step.
