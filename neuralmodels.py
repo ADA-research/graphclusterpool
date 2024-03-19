@@ -348,7 +348,7 @@ class GraphConvPoolNNRedditMulti5k(torch.nn.Module):
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = ClusterPooling
-        self.hid_channel = 256
+        self.hid_channel = 128
         self.batch_size = 1
         self.learningrate = 0.0007
         self.lrhalving = True
@@ -548,13 +548,13 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
     archName = "GCN NCI1"
     def __init__(self, node_features, task_type_node, num_classes, datset_name, device):
         super().__init__()
-        self.n_epochs = 200
+        self.n_epochs = 250
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = ClusterPooling
-        self.hid_channel = 64
+        self.hid_channel = 128
         self.batch_size = 1
-        self.learningrate = 0.001
+        self.learningrate = 0.005
         self.lrhalving = True
         self.halvinginterval = 50
 
@@ -563,18 +563,18 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
 
         self.task_type_node = task_type_node
 
-        dropout=0.05
+        dropout=0.0
         dropout_pool=dropout
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
         
-        #self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
+        self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
         
         self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         
-        #self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
+        self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
         
         #self.pool2 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         #self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
@@ -605,11 +605,11 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
         #x = F.relu(x)
         #x = self.dropout(x)
 
-        #x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
+        """x, edge_index, batch, unpool2 = self.pool2(x, edge_index.long(), batch)
 
-        #x = self.conv5(x, edge_index)
-        #x = F.relu(x)
-        #x = self.dropout(x)
+        x = self.conv5(x, edge_index)
+        x = F.relu(x)
+        x = self.dropout(x)"""
 
         x = global_mean_pool(x, batch)
 
