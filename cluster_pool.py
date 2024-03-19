@@ -5,13 +5,16 @@ import torch
 import torch.nn.functional as F
 from torch_sparse import coalesce
 
+from torch_scatter import scatter_mul
+from torch_scatter import scatter_add
+
 from torch_geometric.utils import to_scipy_sparse_matrix
 import scipy.sparse as sp
 
 #from line_profiler import LineProfiler
 # Refine/simplify this code to specific needs so we no longer need torch_scatter
 # Also look into removing dependency on torch_sparse coalesce?
-def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):
+"""def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):
     if dim < 0:
         dim = other.dim() + dim
     if src.dim() == 1:
@@ -37,7 +40,7 @@ def scatter_add(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
         out = torch.zeros(size, dtype=src.dtype, device=src.device)
         return out.scatter_add_(dim, index, src)
     else:
-        return out.scatter_add_(dim, index, src)
+        return out.scatter_add_(dim, index, src)"""
 
 """def calculate_components(n_nodes: int, edges: torch.tensor):
         # From https://stackoverflow.com/questions/10301000/python-connected-components
@@ -233,7 +236,6 @@ class ClusterPooling(torch.nn.Module):
         new_edge_score = edge_score[sel_edge] # Get the scores of the selected edges
         # Create the nodes with the edge factor
         new_x = torch.zeros_like(x)
-        from torch_scatter import scatter_mul
         node_factors = torch.ones(new_x.size(0))
         scatter_mul(torch.concat((new_edge_score, new_edge_score)), new_edge.flatten(), out=node_factors)
         new_x = (x.T * node_factors).T
