@@ -61,10 +61,12 @@ def calculate_components(n_nodes: int, edges: torch.tensor):
                     result.append(connected_group)
             return result
 
-        adj_list = {x: set() for x in range(n_nodes)} #Create an empty adjacency list for all nodes
+        adj_list = {x: [] for x in range(n_nodes)} #Create an empty adjacency list for all nodes
         for edge in edges.T.tolist(): #Put values into the adjacency list  #30.9% of time
-            adj_list[edge[0]].add(edge[1]) 
-            adj_list[edge[1]].add(edge[0])
+            adj_list[edge[0]].append(edge[1]) 
+            adj_list[edge[1]].append(edge[0])
+        for k in adj_list:
+            adj_list[k] = set(adj_list[k])
         
         return get_all_connected_groups(adj_list)
 
@@ -134,7 +136,7 @@ class ClusterPooling(torch.nn.Module):
             :func:`ClusterPooling.compute_edge_score_logsoftmax`,
             :func:`ClusterPooling.compute_edge_score_tanh`, and
             :func:`ClusterPooling.compute_edge_score_sigmoid`.
-            (default: :func:`EdgePooling.compute_edge_score_softmax`)
+            (default: :func:`ClusterPooling.compute_edge_score_tanh`)
         dropout (float, optional): The probability with
             which to drop edge scores during training. (default: :obj:`0`)
         add_to_edge_score (float, optional): This is added to each
@@ -198,21 +200,13 @@ class ClusterPooling(torch.nn.Module):
         msk = edge_index[0] != edge_index[1]
         edge_index = edge_index[:,msk]
         e = torch.cat([x[edge_index[0]], x[edge_index[1]]], dim=-1) #Concatenates the source feature with the target features
-        e = self.lin(e).view(-1) #Apply linear NN on the edge "features" view(-1) to reshape to 1 dimension
+        e = self.lin(e).view(-1) #Apply linear NN on the node pairs (edges) and reshape to 1 dimension
         if not directed:
             e += self.lin(torch.cat([x[edge_index[1]], x[edge_index[0]]], dim=-1)).view(-1)
         e = e + self.bias
         e = F.dropout(e, p=self.dropout, training=self.training)
 
-        # In case that we can treat the graph as undirected, evaluate the edge both ways
-        #if not directed:
-        #    e_rev = torch.cat([x[edge_index[1]], x[edge_index[0]]], dim=-1)
-        #    e_rev = self.lin(e_rev).view(-1)
-        #    e_rev = F.dropout(e_rev, p=self.dropout, training=self.training)
-        #  e = e + e_rev #Add the raw scores together
-        #e = e + self.bias
-
-        e = self.compute_edge_score(e)
+        e = self.compute_edge_score(e) #Non linear activation function
         x, edge_index, batch, unpool_info = self.__merge_edges__(
             x, edge_index, batch, e)
 
@@ -233,8 +227,7 @@ class ClusterPooling(torch.nn.Module):
             cluster[c] = i
             i += 1
 
-        cluster = cluster.to(x.device)
-        new_edge = new_edge.to(x.device)
+        cluster, new_edge = cluster.to(x.device), new_edge.to(x.device)
 
         #We compute the new features as the sum of the cluster's nodes' features, multiplied by the edge score
         new_edge_score = edge_score[sel_edge] # Get the scores of the selected edges
