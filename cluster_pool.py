@@ -228,9 +228,7 @@ class ClusterPooling(torch.nn.Module):
         # Determine the components in the new graph G' = (V, E')
         adj = to_scipy_sparse_matrix(new_edge, num_nodes=x.size(0))
         i, components = sp.csgraph.connected_components(adj, directed=False)
-        cluster = torch.tensor(components, dtype=torch.int64)
-        
-        cluster, new_edge = cluster.to(x.device), new_edge.to(x.device)
+        cluster = torch.tensor(components, dtype=torch.int64, device=x.device)
 
         #We compute the new features as the sum of the cluster's nodes' features, multiplied by the edge score
         new_edge_score = edge_score[sel_edge] # Get the scores of the selected edges
@@ -240,7 +238,8 @@ class ClusterPooling(torch.nn.Module):
         scatter_mul(torch.concat((new_edge_score, new_edge_score)), new_edge.flatten(), out=node_factors)
         new_x = (x.T * node_factors).T
         
-        new_x = scatter_add(new_x, cluster, dim=0, dim_size=i) #This seems to work much better in terms of backprop
+        # Add the nodes together
+        new_x = scatter_add(new_x, cluster, dim=0, dim_size=i)
 
         N = new_x.size(0)
         new_edge_index, _ = coalesce(cluster[edge_index], None, N, N) #Remap the edges based on cluster, and coalesce removes all the doubles
