@@ -232,7 +232,7 @@ class ClusterPooling(torch.nn.Module):
         #We compute the new features as the sum of the cluster's nodes' features, multiplied by the edge score
         new_edge_score = edge_score[sel_edge] # Get the scores of the selected edges
         # Create the nodes with the edge factor
-        new_x = torch.clone(x)
+        new_x = torch.zeros_like(x)
         # The edge scores must be summed per node
         from torch_scatter import scatter_mul
         node_factors = torch.ones(new_x.size(0))
