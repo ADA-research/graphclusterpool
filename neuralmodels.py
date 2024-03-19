@@ -785,7 +785,7 @@ class GCNModel(ModelInterface):
                     
                     if not self.bnry:
                         out = out.argmax(dim=1)
-                    vlbls.extend(np.round(out.detach().numpy()).tolist())
+                    vlbls.extend(np.round(out.detach().cpu().numpy()).tolist())
                 
                 self.clf.train()
                 val_loss = val_loss.item() / len(self.valid)
