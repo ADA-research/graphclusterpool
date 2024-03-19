@@ -242,12 +242,9 @@ class ClusterPooling(torch.nn.Module):
         new_x = torch.clone(x)
         # The edge scores must be summed per node
         from torch_scatter import scatter_mul
-        node_factors_left = torch.ones(new_x.size(0))
-        node_factors_right = torch.ones(new_x.size(0))
-        scatter_mul(new_edge_score, new_edge[0], out=node_factors_left) 
-        scatter_mul(new_edge_score, new_edge[1], out=node_factors_right)
-        node_factors_total = node_factors_left * node_factors_right
-        new_x = (x.T * node_factors_total).T
+        node_factors = torch.ones(new_x.size(0))
+        scatter_mul(torch.concat((new_edge_score, new_edge_score)), new_edge.flatten(), out=node_factors)
+        new_x = (x.T * node_factors).T
         
         new_x = scatter_add(new_x, cluster, dim=0, dim_size=i) #This seems to work much better in terms of backprop
 
