@@ -157,7 +157,8 @@ class ClusterPooling(torch.nn.Module):
         self.threshhold = threshold
         self.dropout = dropout
 
-        self.lin = torch.nn.Linear(2 * in_channels, 1)
+        self.lin = torch.nn.Linear(2 * in_channels, 1, bias=False)
+        self.bias = torch.nn.Parameter(torch.zeros(1))
 
         self.reset_parameters()
 
@@ -198,15 +199,19 @@ class ClusterPooling(torch.nn.Module):
         msk = edge_index[0] != edge_index[1]
         edge_index = edge_index[:,msk]
         e = torch.cat([x[edge_index[0]], x[edge_index[1]]], dim=-1) #Concatenates the source feature with the target features
-        e = self.lin(e).view(-1) #Apply linear NN on the edge "features", view(-1) to reshape to 1 dimension
+        e = self.lin(e).view(-1) #Apply linear NN on the edge "features" view(-1) to reshape to 1 dimension
+        if not directed:
+            e += self.lin(torch.cat([x[edge_index[1]], x[edge_index[0]]], dim=-1)).view(-1)
+        e = e + self.bias
         e = F.dropout(e, p=self.dropout, training=self.training)
 
         # In case that we can treat the graph as undirected, evaluate the edge both ways
-        if not directed:
-            e_rev = torch.cat([x[edge_index[1]], x[edge_index[0]]], dim=-1)
-            e_rev = self.lin(e_rev).view(-1)
-            e_rev = F.dropout(e_rev, p=self.dropout, training=self.training)
-            e = e + e_rev #Add the raw scores together
+        #if not directed:
+        #    e_rev = torch.cat([x[edge_index[1]], x[edge_index[0]]], dim=-1)
+        #    e_rev = self.lin(e_rev).view(-1)
+        #    e_rev = F.dropout(e_rev, p=self.dropout, training=self.training)
+        #  e = e + e_rev #Add the raw scores together
+        #e = e + self.bias
 
         e = self.compute_edge_score(e)
         x, edge_index, batch, unpool_info = self.__merge_edges__(
@@ -234,18 +239,18 @@ class ClusterPooling(torch.nn.Module):
 
         #We compute the new features as the sum of the cluster's nodes' features, multiplied by the edge score
         new_edge_score = edge_score[sel_edge] # Get the scores of the selected edges
-        node_reps = (x[new_edge[0]] + x[new_edge[1]])
-        node_reps = node_reps * new_edge_score.view(-1,1)
+        # Create the nodes with the edge factor
         new_x = torch.clone(x)
+        #new_x2 = torch.clone(x)
+        # The edge scores must be summed per node
+        from torch_scatter import scatter_mul
+        node_factors_left = torch.ones(new_x.size(0))
+        node_factors_right = torch.ones(new_x.size(0))
+        scatter_mul(new_edge_score, new_edge[0], out=node_factors_left) 
+        scatter_mul(new_edge_score, new_edge[1], out=node_factors_right)
+        node_factors_total = node_factors_left * node_factors_right
+        new_x = (x.T * node_factors_total).T
         
-        trans_factor = torch.bincount(new_edge.flatten())
-        trans_mask = (trans_factor > 0).nonzero().flatten()
-        new_x[trans_mask] = 0
-        trans_factor = trans_factor[trans_mask]
-        
-        new_x = torch.index_add(new_x, dim=0, index=new_edge[0], source=node_reps)
-        new_x = torch.index_add(new_x, dim=0, index=new_edge[1], source=node_reps)
-        new_x[trans_mask] = new_x[trans_mask] / trans_factor.view(-1,1) #Some nodes get index_added more than once, so divide by that number
         new_x = scatter_add(new_x, cluster, dim=0, dim_size=i) #This seems to work much better in terms of backprop
 
         N = new_x.size(0)
