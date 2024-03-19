@@ -4,8 +4,8 @@ from typing import Optional
 import torch
 import torch.nn.functional as F
 from torch_sparse import coalesce
-from torch_geometric.utils import softmax
-
+from torch_geometric.utils import to_scipy_sparse_matrix
+import scipy.sparse as sp
 
 #from line_profiler import LineProfiler
 # Refine/simplify this code to specific needs so we no longer need torch_scatter
@@ -37,80 +37,6 @@ def scatter_add(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
         return out.scatter_add_(dim, index, src)
     else:
         return out.scatter_add_(dim, index, src)
-
-def calculate_components(n_nodes: int, edges: torch.tensor):
-        # From https://stackoverflow.com/questions/10301000/python-connected-components
-        # Can we do this as tensor operations that yield a cluster index per node?
-        def get_all_connected_groups(graph):
-            already_seen = set()
-            result = []
-
-            def get_connected_group(node, seen):
-                result = []
-                nodes = set([node])
-                while nodes:
-                    node = nodes.pop()
-                    seen.add(node)
-                    #nodes = nodes or graph[node] - seen #Selects nodes unless its empty
-                    nodes.update(graph[node] - already_seen)
-                    result.append(node)
-                return result, seen
-            
-            for node in graph:
-                if node not in already_seen:
-                    connected_group, already_seen = get_connected_group(node, already_seen)
-                    result.append(connected_group)
-            return result
-
-        adj_list = {x: set() for x in range(n_nodes)} #Create an empty adjacency list for all nodes
-        for edge in edges.T.tolist(): #Put values into the adjacency list  #30.9% of time
-            adj_list[edge[0]].add(edge[1]) 
-            adj_list[edge[1]].add(edge[0])
-        
-        return get_all_connected_groups(adj_list)
-
-#@profile
-def calculate_components_torch(n_nodes: int, edges: torch.tensor):
-    cluster_idx = torch.zeros(n_nodes, device=edges.device, dtype=torch.int64)
-    already_seen = set()
-    edges = edges.T
-    
-    adjacency_m = torch.zeros([n_nodes, n_nodes], device=edges.device)
-    # Fill the matrix, assuming this is a cheap operation
-    for e in edges:
-        adjacency_m[e[0].item(),e[1].item()] = 1
-        adjacency_m[e[1].item(),e[0].item()] = 1
-
-    for i in range(n_nodes):
-        adjacency_m[i,i] = 1
-
-    clusters = []
-    for id, row in enumerate(adjacency_m):
-        if id in already_seen:
-            continue
-        current_clus = row.clone()
-
-        new_iter = torch.zeros(current_clus.size(), device=edges.device)
-
-        while not torch.all(current_clus == new_iter):
-            #print("hello")
-            current_clus = current_clus + new_iter
-            current_clus = (current_clus > 0).int()
-            a = adjacency_m * current_clus
-            b = torch.sum(a, dim=1)
-            c = (b > 0)
-            new_iter = c.int()
-        #print()
-        clusters.append(current_clus > 0)
-        already_seen = already_seen.union(set(current_clus.nonzero().flatten().tolist()))
-    #print(a, n_nodes, a / n_nodes)
-    
-    #print(len(already_seen), len(clusters), n_nodes)
-
-    for i, e in enumerate(clusters):
-        cluster_idx[e] = i
-    #print(cluster_idx.nonzero().size())
-    return cluster_idx, len(clusters)
 
 class ClusterPooling(torch.nn.Module):
     r""" REWRITE THIS
@@ -215,19 +141,16 @@ class ClusterPooling(torch.nn.Module):
         return x, edge_index, batch, unpool_info
     
     """ New merge function for combining the nodes """
-    def __merge_edges__(self, x, edge_index, batch, edge_score):
-        cluster = torch.empty_like(batch, device=torch.device('cpu'))
+    def __merge_edges__(self, x, edge_index, batch, edge_score):        
         # Select the edges from the Graph
         edge_mask = (edge_score >= self.threshhold)
         sel_edge = edge_mask.nonzero().flatten()        
         new_edge = torch.index_select(edge_index, dim=1, index=sel_edge).to(x.device)
-        # Determine the components in the new graph G' = (V, E')
-        components = calculate_components(x.size(0), new_edge) #47.3% of time
-        # Unpack the components into a cluster index for each node
-        i = 0
-        for c in components: #15% of time
-            cluster[c] = i
-            i += 1
+
+        # New version to determine clusters
+        adj = to_scipy_sparse_matrix(new_edge, num_nodes=x.size(0))
+        i, components = sp.csgraph.connected_components(adj, directed=False)
+        cluster = torch.tensor(components, dtype=torch.int64, device=x.device)
 
         cluster = cluster.to(x.device)
         new_edge = new_edge.to(x.device)
