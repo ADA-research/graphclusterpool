@@ -4,7 +4,6 @@ from typing import Optional
 import torch
 import torch.nn.functional as F
 from torch_sparse import coalesce
-from torch_geometric.utils import softmax
 
 
 #from line_profiler import LineProfiler
@@ -145,7 +144,7 @@ class ClusterPooling(torch.nn.Module):
     # The unpool description is rather large and could perhaps be downsized
     unpool_description = namedtuple(
         "UnpoolDescription",
-        ["x", "edge_index", "cluster", "batch", "new_edge_score", "old_edge_score", "selected_edges", "cluster_map", "edge_mask"])
+        ["edge_index", "batch", "cluster_map"])
 
     def __init__(self, in_channels, edge_score_method=None, dropout=0.0,
                  threshold=0.0):
@@ -241,7 +240,6 @@ class ClusterPooling(torch.nn.Module):
         new_edge_score = edge_score[sel_edge] # Get the scores of the selected edges
         # Create the nodes with the edge factor
         new_x = torch.clone(x)
-        #new_x2 = torch.clone(x)
         # The edge scores must be summed per node
         from torch_scatter import scatter_mul
         node_factors_left = torch.ones(new_x.size(0))
@@ -259,22 +257,14 @@ class ClusterPooling(torch.nn.Module):
         new_batch = x.new_empty(new_x.size(0), dtype=torch.long)
         new_batch = new_batch.scatter_(0, cluster, batch)
 
-        unpool_info = self.unpool_description(x=x,
-                                           edge_index=edge_index,
-                                           cluster=cluster,
-                                           batch=batch,
-                                           new_edge_score=new_edge_score,
-                                           old_edge_score=edge_score,
-                                           selected_edges=new_edge,
-                                           cluster_map=components,
-                                           edge_mask=edge_mask)
+        unpool_info = self.unpool_description(edge_index=edge_index,
+                                              batch=batch,
+                                              cluster_map=components)
 
         return new_x.to(x.device), new_edge_index.to(x.device), new_batch, unpool_info
 
     def unpool(self, x, unpool_info):
-        r"""Unpools a previous edge pooling step.
-
-        REWRITE
+        r"""Unpools a previous cluster pooling step.
 
         For unpooling, :obj:`x` should be of same shape as those produced by
         this layer's :func:`forward` function. Then, it will produce an
@@ -283,16 +273,14 @@ class ClusterPooling(torch.nn.Module):
         Args:
             x (Tensor): The node features.
             unpool_info (unpool_description): Information that has
-                been produced by :func:`EdgePooling.forward`.
+                been produced by :func:`ClusterPooling.forward`.
 
         Return types:
             * **x** *(Tensor)* - The unpooled node features.
             * **edge_index** *(LongTensor)* - The new edge indices.
             * **batch** *(LongTensor)* - The new batch vector.
         """
-        
         # We just copy the cluster feature into every node
-        # TODO: This can be done better / cleaner / more efficiently
         node_maps = unpool_info.cluster_map
         n_nodes = 0
         for c in node_maps:
