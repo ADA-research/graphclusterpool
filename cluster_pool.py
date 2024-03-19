@@ -4,8 +4,6 @@ from typing import Optional
 import torch
 import torch.nn.functional as F
 from torch_sparse import coalesce
-
-from torch_scatter import scatter_mul
 from torch_scatter import scatter_add
 
 from torch_geometric.utils import to_scipy_sparse_matrix
@@ -14,8 +12,7 @@ import scipy.sparse as sp
 #from line_profiler import LineProfiler
 
 class ClusterPooling(torch.nn.Module):
-    r""" REWRITE THIS
-    
+    r"""
     The cluster pooling operator from the paper `"Paper name here" <paper url here>`
 
     In short, a score is computed for each edge.
@@ -131,8 +128,8 @@ class ClusterPooling(torch.nn.Module):
         adjacency_score[new_edge[0], new_edge[1]] = new_edge_score
         #2 reduce dimension through sum
         node_edge_score_factor = adjacency_score.sum(dim=1)
-        #2B Add 1 for nodes that don't participate in any of the selected edges?
-        node_edge_score_factor += 1
+        #2B Set 1 for nodes that don't participate in any of the selected edges
+        node_edge_score_factor[(node_edge_score_factor == 0).nonzero()] = 1
         #3 create new_x repr by x * summed_edge_scores
         new_x = x * node_edge_score_factor[:, None]
         #4 sum the cluster together through scatter_add
