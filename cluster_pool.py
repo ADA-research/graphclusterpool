@@ -48,11 +48,15 @@ class ClusterPooling(torch.nn.Module):
         ["edge_index", "batch", "cluster_map"])
 
     def __init__(self, in_channels, edge_score_method=None, dropout=0.0,
-                 threshold=0.0, directed=False):
+                 threshold=None, directed=False):
         super().__init__()
         self.in_channels = in_channels
         if edge_score_method is None:
             edge_score_method = self.compute_edge_score_tanh
+            if threshold is None:
+                threshold = 0.0
+        if edge_score_method is self.compute_edge_score_sigmoid and threshold is None:
+            threshold = 0.5
         self.compute_edge_score = edge_score_method
         self.threshhold = threshold
         self.dropout = dropout
@@ -128,32 +132,6 @@ class ClusterPooling(torch.nn.Module):
 
         X_new = (S @ C).T @ X
         edge_index_new, _ = dense_to_sparse((C.T @ A @ C).fill_diagonal_(0))
-        # Select the edges from the Graph
-        """sel_edge = (edge_score >= self.threshhold).nonzero().flatten()        
-        new_edge = torch.index_select(edge_index, dim=1, index=sel_edge).to(x.device)
-
-        # Determine the components in the new graph G' = (V, E')
-        adj = to_scipy_sparse_matrix(new_edge, num_nodes=x.size(0))
-        num_clusters, components = sp.csgraph.connected_components(adj, directed=False)
-        cluster = torch.tensor(components, dtype=torch.int64, device=x.device)
-
-        new_edge_score = edge_score[sel_edge] # Get the scores of the selected edges
-        #1 Create the edge score adjacency matrix
-        adjacency_score = torch.zeros(x.size(0), x.size(0))
-        adjacency_score[new_edge[0], new_edge[1]] = new_edge_score
-        #2 reduce dimension through sum
-        node_edge_score_factor = adjacency_score.sum(dim=1)
-        #2B Set 1 for nodes that don't participate in any of the selected edges
-        node_edge_score_factor[(node_edge_score_factor == 0).nonzero()] = 1
-        #3 create new_x repr by x * summed_edge_scores
-        new_x = x * node_edge_score_factor[:, None]
-        #4 sum the cluster together through scatter_add
-        new_x = scatter_add(new_x, cluster, dim=0, dim_size=num_clusters)
-
-
-        #5 remaped the edges through coalesce
-        N = new_x.size(0)
-        new_edge_index, _ = coalesce(cluster[edge_index], None, N, N) #Remap the edges based on cluster, and coalesce removes all the doubles"""
 
         new_batch = X.new_empty(X_new.size(0), dtype=torch.long)
         new_batch = new_batch.scatter_(0, cluster_index, batch)
