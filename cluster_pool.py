@@ -3,9 +3,8 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as F
-from torch_sparse import coalesce
-from torch_scatter import scatter_add
 
+from torch_geometric.utils import coalesce
 from torch_geometric.utils import to_scipy_sparse_matrix
 from torch_geometric.utils import dense_to_sparse
 from torch_geometric.utils import to_dense_adj
@@ -103,7 +102,9 @@ class ClusterPooling(torch.nn.Module):
         edge_index = edge_index[:,msk]
         if not self.directed:
             edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=-1)
-
+        #We only evaluate each edge once, so we filter double edges from the list
+        edge_index = coalesce(edge_index)
+        
         e = torch.cat([x[edge_index[0]], x[edge_index[1]]], dim=-1) #Concatenates the source feature with the target features
         e = self.lin(e).view(-1) #Apply linear NN on the node pairs (edges) and reshape to 1 dimension
         e = F.dropout(e, p=self.dropout, training=self.training)
