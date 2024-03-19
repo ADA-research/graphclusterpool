@@ -12,35 +12,6 @@ from torch_geometric.utils import to_scipy_sparse_matrix
 import scipy.sparse as sp
 
 #from line_profiler import LineProfiler
-# Refine/simplify this code to specific needs so we no longer need torch_scatter
-# Also look into removing dependency on torch_sparse coalesce?
-"""def broadcast(src: torch.Tensor, other: torch.Tensor, dim: int):
-    if dim < 0:
-        dim = other.dim() + dim
-    if src.dim() == 1:
-        for _ in range(0, dim):
-            src = src.unsqueeze(0)
-    for _ in range(src.dim(), other.dim()):
-        src = src.unsqueeze(-1)
-    src = src.expand(other.size())
-    return src
-
-def scatter_add(src: torch.Tensor, index: torch.Tensor, dim: int = -1,
-                out: Optional[torch.Tensor] = None,
-                dim_size: Optional[int] = None) -> torch.Tensor:
-    index = broadcast(index, src, dim)
-    if out is None:
-        size = list(src.size())
-        if dim_size is not None:
-            size[dim] = dim_size
-        elif index.numel() == 0:
-            size[dim] = 0
-        else:
-            size[dim] = int(index.max()) + 1
-        out = torch.zeros(size, dtype=src.dtype, device=src.device)
-        return out.scatter_add_(dim, index, src)
-    else:
-        return out.scatter_add_(dim, index, src)"""
 
 class ClusterPooling(torch.nn.Module):
     r""" REWRITE THIS
@@ -154,40 +125,19 @@ class ClusterPooling(torch.nn.Module):
         i, components = sp.csgraph.connected_components(adj, directed=False)
         cluster = torch.tensor(components, dtype=torch.int64, device=x.device)
 
-        #We compute the new features as the sum of the cluster's nodes' features, multiplied by the edge score
         new_edge_score = edge_score[sel_edge] # Get the scores of the selected edges
-        # Create the nodes with the edge factor
-        #new_x = torch.zeros_like(x)
-        #node_factors = torch.ones(new_x.size(0))
-        #scatter_mul(torch.concat((new_edge_score, new_edge_score)), new_edge.flatten(), out=node_factors)
-        #new_x = (x.T * node_factors).T
-        
-        # Add the nodes together
-        #new_x = scatter_add(new_x, cluster, dim=0, dim_size=i)
-
-        #new_method_rep = new_x.clone()
-
-
-        node_reps = (x[new_edge[0]] + x[new_edge[1]])
-        node_reps = node_reps * new_edge_score.view(-1,1)
-        new_x = torch.clone(x)
-        
-        trans_factor = torch.bincount(new_edge.flatten())
-        trans_mask = (trans_factor > 0).nonzero().flatten()
-        new_x[trans_mask] = 0
-        trans_factor = trans_factor[trans_mask]
-        
-        new_x = torch.index_add(new_x, dim=0, index=new_edge[0], source=node_reps)
-        new_x = torch.index_add(new_x, dim=0, index=new_edge[1], source=node_reps)
-        new_x[trans_mask] = new_x[trans_mask] / trans_factor.view(-1,1) #Some nodes get index_added more than once, so divide by that number
-        new_x = scatter_add(new_x, cluster, dim=0, dim_size=i) #This seems to work much better in terms of backprop
-
-
-
-
-
-
-
+        #1 Creer de edge score adjacency matrix
+        adjacency_score = torch.zeros(x.size(0), x.size(0))
+        adjacency_score[new_edge[0], new_edge[1]] = new_edge_score
+        #2 reduce dimension through sum
+        node_edge_score_factor = adjacency_score.sum(dim=1)
+        #2B Add 1 for nodes that don't participate in any of the selected edges?
+        node_edge_score_factor += 1
+        #3 create new_x repr by x * summed_edge_scores
+        new_x = x * node_edge_score_factor[:, None]
+        #4 sum the cluster together through scatter_add
+        new_x = scatter_add(new_x, cluster, dim=0, dim_size=i)
+        #5 remaped the edges through coalesce
         N = new_x.size(0)
         new_edge_index, _ = coalesce(cluster[edge_index], None, N, N) #Remap the edges based on cluster, and coalesce removes all the doubles
 
