@@ -231,7 +231,6 @@ class ModelInterface:
                         out = out.argmax(dim=1)
                     tlbls.extend(np.round(out.detach().numpy()).tolist())
                 test_score = self.metric(y_actual=self.y_test, y_prediction=tlbls)
-            self.save_results(filepath, folds, t_loss, t_acc, v_loss, v_acc, test_score, model)
 
             if display:
                 elapsed_time = time.time() - start_time
@@ -245,4 +244,5 @@ class ModelInterface:
                 print(f"\t\t{mtloss:.4f} Lowest Train Loss, {mvloss:.4f} Lowest Validation Loss", flush=True)
                 if test_score is not None:
                     print(f"\t\t [!] Test Set Score: {test_score:.4f}")
+            self.save_results(filepath, folds, t_loss, t_acc, v_loss, v_acc, test_score, model)
 
