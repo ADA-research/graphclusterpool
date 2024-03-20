@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram name="Page-1" id="E90DCbVw8iHSE0YzWJ5c">
-        <mxGraphModel dx="1160" dy="445" grid="1" gridSize="8" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="1" shadow="0">
+        <mxGraphModel dx="1450" dy="556" grid="1" gridSize="8" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="1" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -46,27 +46,11 @@
                 <mxCell id="FWXDVtIiAIGIqecCg6dk-8" value="6" style="ellipse;whiteSpace=wrap;html=1;fillColor=none;" parent="1" vertex="1">
                     <mxGeometry x="176" y="272" width="32" height="32" as="geometry"/>
                 </mxCell>
-                <mxCell id="FWXDVtIiAIGIqecCg6dk-15" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;" parent="1" edge="1">
-                    <mxGeometry width="50" height="50" relative="1" as="geometry">
-                        <mxPoint x="224" y="64" as="sourcePoint"/>
-                        <mxPoint x="344" y="64" as="targetPoint"/>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="FWXDVtIiAIGIqecCg6dk-16" value="&lt;h3&gt;CAM Generator&lt;/h3&gt;" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;" parent="FWXDVtIiAIGIqecCg6dk-15" vertex="1" connectable="0">
-                    <mxGeometry x="-0.1667" y="-2" relative="1" as="geometry">
-                        <mxPoint x="-2" y="22" as="offset"/>
-                    </mxGeometry>
-                </mxCell>
-                <mxCell id="FWXDVtIiAIGIqecCg6dk-61" value="$$\mathbf{E} = S(\mathcal{E}) \geq t$$" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
-                    <mxGeometry x="420" y="82" width="60" height="30" as="geometry"/>
-                </mxCell>
-                <mxCell id="FWXDVtIiAIGIqecCg6dk-79" value="$$\mathcal{G}' = \langle \mathcal{V}', \mathcal{E}' \rangle$$" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
-                    <mxGeometry x="690" y="320" width="60" height="30" as="geometry"/>
-                </mxCell>
-                <mxCell id="FWXDVtIiAIGIqecCg6dk-82" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;" parent="1" edge="1">
-                    <mxGeometry width="50" height="50" relative="1" as="geometry">
-                        <mxPoint x="400" y="66" as="sourcePoint"/>
-                        <mxPoint x="520" y="66" as="targetPoint"/>
+                <mxCell id="FWXDVtIiAIGIqecCg6dk-82" value="$$\text{CAM}$$" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;" parent="1" edge="1">
+                    <mxGeometry y="-30" width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="240" y="66" as="sourcePoint"/>
+                        <mxPoint x="480" y="66" as="targetPoint"/>
+                        <mxPoint as="offset"/>
                     </mxGeometry>
                 </mxCell>
                 <mxCell id="FWXDVtIiAIGIqecCg6dk-62" value="" style="shape=flexArrow;endArrow=classic;html=1;rounded=0;" parent="1" edge="1">
@@ -75,13 +59,10 @@
                         <mxPoint x="696" y="64" as="targetPoint"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="FWXDVtIiAIGIqecCg6dk-90" value="$$X', A' = \text{COARSEN}(X, A, C))$$" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;" parent="FWXDVtIiAIGIqecCg6dk-62" vertex="1" connectable="0">
+                <mxCell id="FWXDVtIiAIGIqecCg6dk-90" value="$$\text{COARSEN}$$" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;" parent="FWXDVtIiAIGIqecCg6dk-62" vertex="1" connectable="0">
                     <mxGeometry x="-0.1333" y="-4" relative="1" as="geometry">
                         <mxPoint y="27" as="offset"/>
                     </mxGeometry>
-                </mxCell>
-                <mxCell id="FWXDVtIiAIGIqecCg6dk-91" value="$$\mathcal{G} = \langle \mathcal{V}, \mathcal{E} \rangle$$" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
-                    <mxGeometry x="162" y="320" width="60" height="30" as="geometry"/>
                 </mxCell>
                 <mxCell id="NFxeUcVusJWuIpaQc8pF-4" value="" style="rounded=1;whiteSpace=wrap;html=1;" parent="1" vertex="1">
                     <mxGeometry x="288" y="112" width="160" height="208" as="geometry"/>
