@@ -176,7 +176,8 @@ class GraphConvPoolNNCOLLAB(torch.nn.Module):
         self.device = device
         self.task_type_node = task_type_node
         self.poolLayer = ClusterPooling
-        self.hid_channel = 32
+        #self.hid_channel = 32
+        self.hid_channel = 16
         self.batch_size = 1
         #self.learningrate = 0.00025
         self.learningrate = 0.001
@@ -490,16 +491,16 @@ class GraphConvPoolNNIMDBMulti(torch.nn.Module):
     archName = "GCN IMDB-Multi"
     def __init__(self, node_features, task_type_node, num_classes, dataset_name, device):
         super().__init__()
-        self.n_epochs = 100
+        self.n_epochs = 200
         self.num_classes = num_classes
         self.device = device
         self.poolLayer = ClusterPooling
-        self.hid_channel = 256
+        self.hid_channel = 128
         self.batch_size = 1
         self.learningrate = 0.001
         self.lrhalving = True
         self.halvinginterval = 45
-        dropout=0.00
+        dropout=0.1
         dropout_pool=dropout
         self.task_type_node = task_type_node
         if self.num_classes == 2: #binary
@@ -563,18 +564,18 @@ class GraphConvPoolNNNCI1(torch.nn.Module):
 
         self.task_type_node = task_type_node
 
-        dropout=0.0
+        dropout=0.1
         dropout_pool=dropout
         self.dropout = torch.nn.Dropout(p=dropout)
         self.conv1 = GCNConv(node_features, self.hid_channel)
         
-        self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.conv2 = GCNConv(self.hid_channel, self.hid_channel)
         
         self.pool1 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         
         self.conv3 = GCNConv(self.hid_channel, self.hid_channel)
         
-        self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
+        #self.conv4 = GCNConv(self.hid_channel, self.hid_channel)
         
         #self.pool2 = self.poolLayer(self.hid_channel, dropout=dropout_pool)
         #self.conv5 = GCNConv(self.hid_channel, self.hid_channel)
