@@ -12,6 +12,8 @@ Install all required packages using the requirements.yml as:
 
 ## Running experiments
 
+The repository does not include all the Datasets as they are to large. The user is expected to download them from ``https://chrsmrrs.github.io/datasets/``. They must then be converted to the pytorch tensor format, as shown as an example in ``Datasets/PROTEINS/PROTEINS_full/convert-protein.py``.
+
 To run an experiment, make sure to run the code on a server with Slurm available. Then simply pick an experiment (data set) to rerun. For example, PROTEIN:
 ```run-sbatch.sh batch-protein.sh```
 
