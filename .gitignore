@@ -6,5 +6,4 @@ Datasets/REDDIT-BINARY
 Datasets/REDDIT-MULTI-5K
 Datasets/REDDIT-MULTI-12K
 Datasets/PROTEINS/PROTEINS_full/PROTEINS.pkl
-__pycache__/
 results/
