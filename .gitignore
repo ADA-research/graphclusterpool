@@ -1,4 +1,11 @@
-Datasets/
+Datasets/COLLAB
+Datasets/IMDB-BINARY
+Datasets/IMDB-MULTI
+Datasets/NCI1
+Datasets/REDDIT-BINARY
+Datasets/REDDIT-MULTI-5K
+Datasets/REDDIT-MULTI-12K
+Datasets/PROTEINS/PROTEINS_full/PROTEINS.pkl
 __pycache__/
 results/
 .vscode/
