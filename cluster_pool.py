@@ -9,11 +9,10 @@ from torch_geometric.utils import dense_to_sparse
 from torch_geometric.utils import to_dense_adj
 import scipy.sparse as sp
 
-#from line_profiler import LineProfiler
 
 class ClusterPooling(torch.nn.Module):
     r"""
-    The cluster pooling operator from the paper `"Paper name here" <paper url here>`
+    The cluster pooling operator from the paper `"Edge-Based Graph Component Pooling" <paper url>`
 
     In short, a score is computed for each edge.
     Based on the selected edges, graph clusters are calculated and compressed to one
@@ -30,15 +29,12 @@ class ClusterPooling(torch.nn.Module):
             nodes :obj:`num_nodes`, and produces a new tensor of the same size
             as :obj:`raw_edge_score` describing normalized edge scores.
             Included functions are
-            :func:`ClusterPooling.compute_edge_score_logsoftmax`,
-            :func:`ClusterPooling.compute_edge_score_tanh`, and
-            :func:`ClusterPooling.compute_edge_score_sigmoid`.
+            :func:`ClusterPooling.compute_edge_score_tanh`,
+            :func:`ClusterPooling.compute_edge_score_sigmoid` and
+            :func:`ClusterPooling.compute_edge_score_logsoftmax`.
             (default: :func:`ClusterPooling.compute_edge_score_tanh`)
         dropout (float, optional): The probability with
             which to drop edge scores during training. (default: :obj:`0`)
-        add_to_edge_score (float, optional): This is added to each
-            computed edge score. Adding this greatly helps with unpool
-            stability. (default: :obj:`0.5`)
     """
     # The unpool description is rather large and could perhaps be downsized
     unpool_description = namedtuple(
