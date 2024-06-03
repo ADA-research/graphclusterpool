@@ -1,4 +1,0 @@
-torch==2.1.0
-torch_geometric
-torch-scatter
--f https://data.pyg.org/whl/torch-2.1.0+cu121.html
