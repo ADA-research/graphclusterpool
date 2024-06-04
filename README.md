@@ -20,3 +20,7 @@ To run an experiment, make sure to run the code on a server with Slurm available
 ## Using the layer
 
 Although we aim to release the layer on PyG, in the mean time the layer can be used by simply importing the ```cluster_pool.py``` file into your code, which contains the ```ClusterPooling``` class. This class can be used in the same way as many other pooling layers.
+
+
+## Other
+The ```other``` dir contains some temporary code used to convert certain formats to create some needed information for plotting graphs etc. It is included for the advanced reader, as it is undocumented.
