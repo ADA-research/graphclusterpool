@@ -23,7 +23,7 @@ class ClusterPooling(torch.nn.Module):
         in_channels (int): Size of each input sample.
         edge_score_method (function, optional): The function to apply
             to compute the edge score from raw edge scores. By default,
-            this is the softmax over all incoming edges for each node.
+            this is the tanh over all incoming edges for each node.
             This function takes in a :obj:`raw_edge_score` tensor of shape
             :obj:`[num_nodes]`, an :obj:`edge_index` tensor and the number of
             nodes :obj:`num_nodes`, and produces a new tensor of the same size
@@ -36,7 +36,6 @@ class ClusterPooling(torch.nn.Module):
         dropout (float, optional): The probability with
             which to drop edge scores during training. (default: :obj:`0`)
     """
-    # The unpool description is rather large and could perhaps be downsized
     unpool_description = namedtuple(
         "UnpoolDescription",
         ["edge_index", "batch", "cluster_map"])
@@ -90,18 +89,18 @@ class ClusterPooling(torch.nn.Module):
             * **edge_index** *(LongTensor)* - The coarsened edge indices.
             * **batch** *(LongTensor)* - The coarsened batch vector.
             * **unpool_info** *(unpool_description)* - Information that is
-              consumed by :func:`EdgePooling.unpool` for unpooling.
+              consumed by :func:`ClusterPooling.unpool` for unpooling.
         """
         #First we drop the self edges as those cannot be clustered
         msk = edge_index[0] != edge_index[1]
         edge_index = edge_index[:,msk]
         if not self.directed:
             edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=-1)
-        #We only evaluate each edge once, so we filter double edges from the list
+        # We only evaluate each edge once, so we filter double edges from the list
         edge_index = coalesce(edge_index)
         
-        e = torch.cat([x[edge_index[0]], x[edge_index[1]]], dim=-1) #Concatenates the source feature with the target features
-        e = self.lin(e).view(-1) #Apply linear NN on the node pairs (edges) and reshape to 1 dimension
+        e = torch.cat([x[edge_index[0]], x[edge_index[1]]], dim=-1) # Concatenates the source feature with the target features
+        e = self.lin(e).view(-1) # Apply linear NN on the node pairs (edges) and reshape to 1 dimension
         e = F.dropout(e, p=self.dropout, training=self.training)
 
         e = self.compute_edge_score(e) #Non linear activation function
@@ -110,8 +109,24 @@ class ClusterPooling(torch.nn.Module):
 
         return x, edge_index, batch, unpool_info
     
-    """ New merge function for combining the nodes """
     def __merge_edges__(self, X, edge_index, batch, edge_score):
+        """Internal method to merge the nodes over the selected edges.
+
+        Args:
+            x (Tensor): The node features.
+            edge_index (LongTensor): The edge indices.
+            batch (LongTensor): Batch vector
+                :math:`\mathbf{b} \in {\{ 0, \ldots, B-1\}}^N`, which assigns
+                each node to a specific example.
+            edge_score: Tensor of shape :obj:`[num_edges]` containing the
+                edge scores.
+
+        Return types:
+            * **x** *(Tensor)* - The pooled node features.
+            * **edge_index** *(LongTensor)* - The coarsened edge indices.
+            * **batch** *(LongTensor)* - The coarsened batch vector.
+            * **unpool_info** *(NamedTuple)* - Information needed to reverse this method
+            """
         edges_contract = edge_index[..., edge_score > self.threshhold]
 
         adj = to_scipy_sparse_matrix(edges_contract, num_nodes=X.size(0))
