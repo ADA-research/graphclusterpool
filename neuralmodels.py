@@ -611,7 +611,7 @@ class GCNModel(ModelInterface):
             else:
                 self.clf = self.architecture(self.n_node_features, self.task_type_node, self.n_labels, self.data_name, self.device)
             self.clf.to(self.device)
-            param_count = np.sum([params.size()[0] for params in self.clf.parameters()])
+            param_count = sum([params.numel() for params in self.clf.parameters() if params.requires_grad])
             print(f"Created model with {param_count} parameters.")
         if hasattr(self.clf, "optimizertype"):
             optimizer = self.clf.optimizertype(self.clf.parameters(), lr=self.clf.learningrate)
